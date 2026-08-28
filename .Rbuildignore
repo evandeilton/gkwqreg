@@ -1,8 +1,6 @@
-^design$
-^SPEC\.md$
-^docs$
-^CONTEXT\.md$
-^data-raw$
 ^\.github$
 ^.*\.Rproj$
 ^\.Rproj\.user$
+^_pkgdown\.yml$
+^pkgdown$
+^pkgdown-site$
