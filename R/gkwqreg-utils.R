@@ -4,7 +4,7 @@
 ## Reimplemented rather than borrowed from gkwreg: every equivalent there is a
 ## dot-prefixed internal, so reuse would mean `gkwreg:::` (a check NOTE CRAN
 ## rejects for new submissions) or growing that package's API to serve a
-## sibling. See docs/adr/0003.
+## sibling.
 ## ---------------------------------------------------------------------------
 
 ## Link codes match gkwreg's .convert_links_to_int, so link names stay portable

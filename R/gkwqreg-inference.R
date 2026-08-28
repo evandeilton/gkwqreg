@@ -4,7 +4,7 @@
 ## One guard runs through all of it: models compared by a likelihood-ratio test
 ## must share the same quantile level AND the same anchor. Different levels are
 ## different likelihoods; different anchors are non-nested models of equal
-## dimension (docs/adr/0001), so an LR test on either is meaningless even though
+## dimension, so an LR test on either is meaningless even though
 ## the arithmetic would happily produce a number.
 ## ---------------------------------------------------------------------------
 

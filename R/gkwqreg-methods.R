@@ -5,7 +5,6 @@
 ## every missing method silently dispatch mean semantics on a quantile object,
 ## and the most dangerous case is fitted(): here it returns conditional
 ## quantiles, there conditional means. A missing method must error, not guess.
-## See docs/adr/0003.
 ## ---------------------------------------------------------------------------
 
 #' Extractor methods for a quantile regression fit

@@ -13,7 +13,7 @@
 //  the derivative chain.  TMB's qbeta atomic takes its shape partials
 //  from that same pbeta, so it inherits the defect: d/dshape2 comes back
 //  as exactly 0 whenever shape2 is a whole number at or above a
-//  branch-dependent threshold.  See docs/adr/0002.
+//  branch-dependent threshold.
 //
 //  So we supply our own dI/dp and dI/dq from the series expansion of the
 //  regularized incomplete beta, and build two atomics on top of them:
