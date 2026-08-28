@@ -317,6 +317,23 @@ gkwq_boot <- function(object, R = 200L, type = c("pairs", "parametric"),
   ocol <- as.numeric(object$offsets[["mu"]]) -
     .gkwq_part_offset(object$terms[["mu"]], mf, n)
   if (all(ocol == 0)) ocol <- NULL
+  ## offset() TERMS inside the formula need care of their own, and for the
+  ## opposite reason. The model frame stores each one under its deparsed call,
+  ## "offset(o)" or "offset(log(z))", which is not a name any formula can
+  ## resolve. Re-evaluating the term on the refit therefore either fails
+  ## outright, when the variable is not in scope, or -- worse, and the usual
+  ## case -- silently reaches past the resampled data to the ORIGINAL variable
+  ## in the caller's environment, so the replicates carry row i's offset on
+  ## resampled row i. Pointing each offset() at an accessible column of the
+  ## resampled model frame removes both failure modes at once, and works for an
+  ## arbitrary expression because the column already holds evaluated values.
+  ocols <- grep("^offset\\(", names(mf), value = TRUE)
+  omap <- stats::setNames(as.list(sprintf(".gkwq_off%d", seq_along(ocols))), ocols)
+  fml_r <- if (length(ocols)) {
+    .gkwq_alias_offsets(
+      stats::as.formula(paste(deparse(object$formula), collapse = " "),
+                        env = environment(object$formula)), omap)
+  } else NULL
   p <- length(object$coefficients)
   resp <- names(mf)[1L]
 
@@ -346,6 +363,11 @@ gkwq_boot <- function(object, R = 200L, type = c("pairs", "parametric"),
     if (!is.null(ocol)) {
       d[[".gkwq_o"]] <- ocol[idx]
       cl_r$offset <- as.name(".gkwq_o")
+    }
+    if (length(ocols)) {
+      ## d is already mf[idx, ], so these columns carry the resampled values.
+      for (k in ocols) d[[omap[[k]]]] <- d[[k]]
+      cl_r$formula <- fml_r
     }
     f <- suppressWarnings(try(eval(cl_r, list(d = d), parent.frame()),
                               silent = TRUE))

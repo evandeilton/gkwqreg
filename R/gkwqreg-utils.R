@@ -253,4 +253,21 @@
   rowSums(vapply(mf[cols], as.numeric, numeric(n)))
 }
 
+## Rewrite every offset(<expr>) in a formula to offset(<alias>), where `map` is
+## keyed by the deparsed call -- "offset(log(z))" -- exactly as model.frame()
+## names the corresponding column. Used when refitting against a resampled model
+## frame, where the original expression must not be evaluated again. Recurses
+## through the whole language object, so an offset() in any part is reached.
+.gkwq_alias_offsets <- function(e, map) {
+  if (is.call(e)) {
+    if (identical(e[[1L]], as.name("offset"))) {
+      nm <- map[[paste(deparse(e), collapse = "")]]
+      if (!is.null(nm)) e[[2L]] <- as.name(nm)
+      return(e)
+    }
+    for (i in seq_along(e)[-1L]) e[[i]] <- .gkwq_alias_offsets(e[[i]], map)
+  }
+  e
+}
+
 `%||%` <- function(x, y) if (is.null(x)) y else x
