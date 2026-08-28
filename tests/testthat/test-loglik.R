@@ -16,7 +16,14 @@ test_that("V4: the R cascade equals the tape for every family", {
     pv <- fit$parameter_vectors
     ll_r <- sum(logdens(fit$y, pv$alpha, pv$beta, pv$gamma, pv$delta, pv$lambda,
                         delta_is_zero = fit$spec$delta_is_zero == 1L))
-    expect_equal(ll_r, fit$loglik, tolerance = 1e-9,
+    ## Relative, and deliberately looser than the tape-vs-gkwdist check above.
+    ## Those two agree to 1e-10 because they evaluate the same compiled path;
+    ## here the R cascade and the tape are separate implementations, so the sum
+    ## over n observations picks up whatever the platform's compiler does with
+    ## operation order and FMA contraction. macOS arm64 lands ~2e-9 away from
+    ## x86_64 Linux. A genuine cascade/tape divergence is orders of magnitude
+    ## larger than that, so 1e-7 still fails loudly for a real defect.
+    expect_equal(ll_r, fit$loglik, tolerance = 1e-7,
                  info = sprintf("family %s", fam))
   }
 })
