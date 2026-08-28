@@ -2,23 +2,164 @@
 % Please edit documentation in R/gkwqreg-process.R
 \name{pinball}
 \alias{pinball}
-\title{Pinball (check) loss}
+\title{Pinball (check) loss of a fitted quantile regression}
 \usage{
 pinball(object, newdata = NULL, y = NULL)
 }
 \arguments{
-\item{object}{A \code{"gkwqreg"} or \code{"gkwqregs"} fit.}
+\item{object}{A \code{"gkwqreg"} fit, or a \code{"gkwqregs"} container of fits at
+several quantile levels.}
 
-\item{newdata}{Optional data to evaluate on; defaults to the fitting data.}
+\item{newdata}{Optional data frame on which to evaluate the loss. When
+supplied, the fitted quantiles are obtained by
+\code{predict(object, newdata, type = "quantile")}, so \code{newdata} must contain
+every covariate used by any part of the model. When \code{NULL} (the default) the
+loss is computed in sample, from \code{object$fitted.values} and the stored
+response, and is then identical to the value cached in \code{object$pinball}.}
 
-\item{y}{Optional response for \code{newdata}; taken from \code{newdata} if omitted.}
+\item{y}{Optional numeric response to pair with \code{newdata}. If omitted, the
+response is taken from the column of \code{newdata} named on the left-hand side
+of the model formula; if that column is absent, an error asks for \code{y}
+explicitly. Ignored when \code{newdata} is \code{NULL}.}
 }
 \value{
-The mean check loss, or one value per quantile level.
+A single number for a \code{"gkwqreg"} fit: the weighted mean check loss,
+on the scale of the response. For a \code{"gkwqregs"} container, a numeric vector
+with one entry per quantile level, named as the container's elements are
+(\code{"tau=0.1"} and so on).
 }
 \description{
-The loss a quantile estimate actually targets, and the right criterion for
-choosing a family: AIC compares likelihoods across parametrizations that are
-not all nested, whereas check loss compares the thing being estimated. Use it
-out of sample.
+Evaluates, on the fitting data or on a held-out sample, the loss function that
+a quantile estimate actually targets. This is the criterion to use when the
+question is which family to fit and the answer will be acted on as a statement
+about a quantile.
+}
+\details{
+Write \eqn{\hat{Q}_\tau(x_i)}{Qhat_i} for the fitted conditional
+\eqn{\tau}{tau}-quantile of observation \eqn{i} and
+\eqn{u_i = y_i - \hat{Q}_\tau(x_i)}{u_i = y_i - Qhat_i} for its residual. The
+pinball, or check, loss is the asymmetrically weighted absolute deviation
+
+\deqn{\rho_\tau(u) \;=\; u \, \left( \tau - \mathbf{1}\{u < 0\} \right),}{
+      rho_tau(u) = u * (tau - 1{u < 0}),}
+
+equal to \eqn{\tau u}{tau * u} when the observation lies above the fitted
+quantile and to \eqn{-(1 - \tau) u}{-(1 - tau) * u} when it lies below.
+\code{pinball()} returns the weighted sample mean of that loss,
+
+\deqn{L_\tau \;=\; \frac{\sum_i w_i \, \rho_\tau(y_i - \hat{Q}_\tau(x_i))}{\sum_i w_i},}{
+      L_tau = sum_i w_i rho_tau(y_i - Qhat_i) / sum_i w_i,}
+
+with \eqn{w_i}{w_i} the prior weights supplied to \code{\link[=gkwqreg]{gkwqreg()}}. Weights apply
+only to the in-sample calculation; when \code{newdata} is given every row counts
+once.
+
+Underprediction is charged \eqn{\tau}{tau} per unit and overprediction
+\eqn{1 - \tau}{1 - tau} per unit, so at \eqn{\tau = 0.9}{tau = 0.9} falling
+short of an observation costs nine times as much as overshooting it by the
+same amount. The loss carries the units of the response and is therefore
+numerically small for a response confined to \eqn{(0,1)}{(0,1)}; only
+\emph{differences} between competing fits evaluated on the \emph{same} rows are
+interpretable.
+}
+\section{Why check loss and not AIC}{
+
+The population minimiser of \eqn{E[\rho_\tau(Y - q)]}{E[rho_tau(Y - q)]} over
+\eqn{q} is the \eqn{\tau}{tau}-quantile of \eqn{Y}. This is the defining
+property of the check function (Koenker and Bassett, 1978) and the reason it is
+the natural scoring rule for a quantile forecast (Gneiting, 2011). Check loss
+therefore scores exactly the quantity this package estimates, and nothing else.
+
+AIC scores something materially different: the whole conditional density. A
+family can describe the bulk of the distribution well, be rewarded for it by
+the likelihood, and still place the quantile of interest worse than a rival
+that fits the bulk less well. \strong{The two criteria can rank families
+differently, and when they do it is not a symptom of anything having gone
+wrong.} In the case study shipped with this package
+(\code{vignette("gkwqreg-case-study")}) AIC ranks family \code{"beta"} first while
+out-of-sample check loss ranks it last, behind every Kumaraswamy member. When
+the inferential target is a quantile, act on the check loss; when it is the
+conditional distribution as a whole, AIC is the relevant criterion. Deciding
+which of the two applies is a modelling decision, not a computational one.
+}
+
+\section{Why out of sample}{
+
+In-sample check loss is not a model-selection criterion. It carries no penalty
+for dimension, so a family with more free parameters can track the observed
+rows more closely whether or not the extra flexibility corresponds to anything
+real, and comparing it with a sub-family in sample mostly rewards that
+flexibility. Evaluate on rows the model has not seen: pass a held-out
+\code{newdata}, or average \code{pinball()} over cross-validation folds. The in-sample
+value remains useful as a description of fit -- and it is what
+\code{\link[=compare_families]{compare_families()}} reports, alongside AIC and BIC, which do carry penalties
+-- but it should not be the basis for choosing between families.
+}
+
+\examples{
+## A response in (0,1) whose dispersion, not only its location, depends on x.
+## Fitting `y ~ x` regresses the quantile alone and leaves the shape constant,
+## so every family below is misspecified, to a different degree and in a
+## different way -- which is exactly when the choice of criterion matters.
+set.seed(1)
+n <- 600
+x <- runif(n, -2, 2)
+mu <- plogis(0.3 + 1.0 * x)
+phi <- exp(1 + 0.8 * x)
+y <- rbeta(n, phi * mu, phi * (1 - mu))
+d <- data.frame(y = y, x = x)
+train <- d[1:300, ]
+test <- d[301:600, ]
+
+fit <- gkwqreg(y ~ x, data = train, tau = 0.5, family = "kw")
+
+## In sample this is the value the likelihood machinery already cached.
+c(pinball(fit), fit$pinball)
+#> 0.1116671 0.1116671
+
+## Out of sample, and identical to the definition applied by hand.
+e <- test$y - predict(fit, newdata = test, type = "quantile")
+c(pinball(fit, newdata = test), mean(e * (0.5 - (e < 0))))
+#> 0.1034218 0.1034218
+
+## AIC and out-of-sample check loss need not agree.
+tab <- t(sapply(c("kw", "ekw", "bkw", "beta", "mc"), function(f) {
+  m <- suppressWarnings(gkwqreg(y ~ x, data = train, tau = 0.5, family = f))
+  c(AIC = AIC(m), in_sample = pinball(m), out_of_sample = pinball(m, newdata = test))
+}))
+round(tab, 4)
+#>            AIC in_sample out_of_sample
+#> kw   -291.5234    0.1117        0.1034
+#> ekw  -480.8364    0.1003        0.0934
+#> bkw  -417.9420    0.1010        0.0938
+#> beta -484.7745    0.1012        0.0940
+#> mc   -482.7745    0.1012        0.0940
+
+rownames(tab)[which.min(tab[, "AIC"])]            # "beta"
+rownames(tab)[which.min(tab[, "out_of_sample"])]  # "ekw"
+
+## AIC prefers "beta"; the median it delivers is the fourth best of five.
+## For a question about the median, "ekw" is the fit to report.
+
+## One value per level from a container of independent fits.
+fits <- gkwqreg(y ~ x, data = train, tau = c(0.1, 0.5, 0.9), family = "kw")
+round(pinball(fits, newdata = test), 4)
+#> tau=0.1 tau=0.5 tau=0.9
+#>  0.0550  0.1034  0.0389
+## The loss shrinks towards the tails because rho_tau is bounded by the
+## smaller of tau and 1 - tau; these three numbers are NOT comparable with
+## one another, only with a rival fit at the same level.
+
+}
+\references{
+Koenker, R. and Bassett, G. (1978). Regression quantiles. \emph{Econometrica}.
+
+Gneiting, T. (2011). Making and evaluating point forecasts.
+\emph{Journal of the American Statistical Association}.
+}
+\seealso{
+\code{\link[=compare_families]{compare_families()}}, which tabulates AIC, BIC and the in-sample
+check loss for every family at once; \code{\link[=residuals.gkwqreg]{residuals.gkwqreg()}} with
+\code{type = "check"} for the per-observation contributions to \eqn{L_\tau}{L_tau};
+\code{\link[=vuong_test]{vuong_test()}} for a formal test between two non-nested families.
 }

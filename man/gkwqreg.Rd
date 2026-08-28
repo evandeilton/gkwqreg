@@ -30,103 +30,506 @@ always the conditional quantile.} The remaining parts follow the family's
 parameter order with the anchored parameter removed; \code{\link[=gkwq_parts]{gkwq_parts()}} reports
 the exact contract. Omitted trailing parts default to \code{~ 1}.}
 
-\item{data, subset, na.action, weights, offset, contrasts}{Standard model-frame
-arguments. Weights and offsets are applied inside the likelihood.}
+\item{data}{An optional data frame, list or environment holding the variables
+in \code{formula}. If missing, they are looked up in the environment of
+\code{formula}.}
 
 \item{tau}{Quantile level in \verb{(0,1)}. A vector returns a \code{"gkwqregs"}
-container of independent fits, one per level. Mandatory in the sense that it is never
+container of independent fits, one per level, fitted from the level nearest
+the median outward with warm starts. Mandatory in the sense that it is never
 estimated: the profile likelihood in \code{tau} is exactly flat, so \code{tau} indexes
 the question, not the model.}
 
 \item{family}{One of \code{"kw"}, \code{"ekw"}, \code{"kkw"}, \code{"bkw"}, \code{"gkw"}, \code{"mc"},
-\code{"beta"}.}
+\code{"beta"}. See the table above for the constraints each imposes.}
 
 \item{anchor}{The parameter eliminated in favour of the conditional quantile,
 or \code{NULL} for the family default. See the section above; this is a modeling
-argument.}
+argument, not an internal detail. \code{\link[=gkwq_anchors]{gkwq_anchors()}} lists what a family
+allows.}
 
-\item{link, link_scale}{Link functions and scale factors, either a single
-value or a named vector indexed by part. The quantile defaults to \code{"logit"}
-and must map to \verb{(0,1)}; the rest default to \code{"log"}.}
+\item{link}{Link functions, as a single name or a named vector indexed by
+part. The quantile part defaults to \code{"logit"} and must map to \verb{(0,1)}, so it
+is one of \code{"logit"}, \code{"probit"}, \code{"cauchy"}, \code{"cloglog"}. The remaining
+parts default to \code{"log"} and may also be \code{"identity"}, \code{"sqrt"},
+\code{"inverse"} or \code{"inverse-square"}. A single \emph{unnamed} link applies to the
+nuisance parts only, never silently to the quantile; an unnamed vector as
+long as \code{gkwq_parts()} applies part by part.}
 
-\item{control}{An object from \code{\link[=gkwq_control]{gkwq_control()}}.}
+\item{link_scale}{Multiplicative scale factors for the inverse links, as a
+single value or a named vector indexed by part. Only the bounded links use
+them, rescaling the image from \verb{(0,1)} to \verb{(0, scale)}; the conditional
+quantile is a probability and is never rescaled, so its scale is forced
+to 1.}
 
-\item{model, x, y}{Whether to return the model frame, design matrices and
-response in the fitted object.}
+\item{subset}{An optional expression selecting a subset of rows, evaluated in
+\code{data} first and then in the calling frame.}
 
-\item{...}{Passed to \code{\link[=gkwq_control]{gkwq_control()}} when \code{control} is left at its default.}
+\item{weights}{Optional prior weights \eqn{w_i}, entering the likelihood as
+multipliers of the per-observation log-density; the reported check loss is
+weighted to match. May name a column of \code{data}. Negative weights are an
+error.}
+
+\item{offset}{An optional numeric offset added to the linear predictor of the
+\strong{conditional quantile}, which is the part an offset is normally meant for.
+Offsets for another part are written as an \code{offset()} term inside that part
+of \code{formula}, and the two add.}
+
+\item{na.action}{How to treat missing values in the model frame; defaults to
+\code{\link[stats:na.omit]{stats::na.omit()}}. Responses at exactly 0 or 1 lie outside the support and
+are an error, never silently clamped.}
+
+\item{contrasts}{An optional list of contrasts for factor covariates, as in
+\code{\link[stats:model.matrix]{stats::model.matrix()}}.}
+
+\item{control}{An object from \code{\link[=gkwq_control]{gkwq_control()}} holding the optimizer,
+starting-value and covariance settings.}
+
+\item{model, x, y}{Whether to keep the model frame, the per-part design matrices
+and the response in the fitted object. \code{y = TRUE} (the default) is required
+by \code{\link[=residuals.gkwqreg]{residuals.gkwqreg()}}, \code{\link[=plot.gkwqreg]{plot.gkwqreg()}} and the goodness-of-fit lines of
+\code{summary()}; \code{x = TRUE} avoids rebuilding design matrices in
+\code{\link[=marginal_effects]{marginal_effects()}}.}
+
+\item{...}{Passed to \code{\link[=gkwq_control]{gkwq_control()}}. If any are supplied, the resulting
+control object \strong{replaces} \code{control} entirely, so use one route or the
+other rather than both.}
 }
 \value{
-An object of class \code{"gkwqreg"}, or \code{"gkwqregs"} when \code{tau} has length
-greater than one.
+For a single \code{tau}, an object of class \code{"gkwqreg"}: a list whose components
+include
+
+\describe{
+\item{\code{coefficients}}{the stacked coefficient vector, named \code{"part:term"}.}
+\item{\code{coef_list}}{the same coefficients split by part; \code{coef(fit, part =)}
+reads from it.}
+\item{\code{se}, \code{vcov}, \code{hessian}, \code{cond_number}}{standard errors, the inverse
+observed information, the observed information itself, and its exact
+condition number. \code{cond_number} above \code{1e8} is the signature of a weakly
+identified fit.}
+\item{\code{fitted.values}}{the fitted conditional \eqn{\tau}-quantiles
+\eqn{\mu_{\tau i}} -- \strong{quantiles, not means}.}
+\item{\code{linear.predictors}}{a named list of linear predictors, one per part,
+offsets included.}
+\item{\code{parameter_vectors}}{an \code{n} by 5 data frame of the reconstructed
+\code{alpha}, \code{beta}, \code{gamma}, \code{delta}, \code{lambda} per observation, the anchored
+column included.}
+\item{\code{loglik}, \code{loglik_i}, \code{npar}, \code{nobs}, \code{aic}, \code{bic}}{the maximized
+log-likelihood (re-evaluated at the reported coefficients, never taken
+from the optimizer's own record), its per-observation contributions, the
+number of estimated coefficients, the sample size, and the two
+information criteria.}
+\item{\code{pinball}}{the in-sample check loss
+\eqn{n^{-1}\sum_i (y_i-\mu_{\tau i})\bigl(\tau-\mathbf{1}(y_i<\mu_{\tau i})\bigr)}{mean_i (y_i - mu_i) (tau - 1(y_i < mu_i))}, the
+criterion a quantile estimate actually targets.}
+\item{\code{family}, \code{tau}, \code{anchor}, \code{parts}, \code{spec}}{the family name, the
+quantile level, the anchored parameter, the part names in order, and the
+full internal family specification.}
+\item{\code{link}, \code{link_scale}}{the link name and scale used for each part.}
+\item{\code{call}, \code{formula}, \code{terms}, \code{levels}, \code{contrasts}}{the matched call,
+the multi-part formula, per-part terms objects, the factor levels and the
+contrasts recorded at fit time, all used by \code{predict(newdata =)}.}
+\item{\code{weights}, \code{offsets}}{the prior weights and the per-part offsets.}
+\item{\code{convergence}, \code{message}, \code{iterations}}{the optimizer's exit code,
+message and iteration count. A non-zero code triggers a warning at fit
+time and a note in \code{summary()}.}
+\item{\code{control}, \code{start}, \code{obj}}{the control object, the starting values
+actually used, and the TMB object. \code{obj} is what makes
+\code{\link[=estfun.gkwqreg]{estfun.gkwqreg()}} and profile-likelihood intervals possible; it holds
+external pointers, so it is valid only in the session that built it.}
+\item{\code{model}, \code{x}, \code{y}}{present only when the matching argument was \code{TRUE}:
+the model frame, the list of design matrices, and the (clamped) response.}
+}
+
+For a vector \code{tau}, an object of class \code{"gkwqregs"} with components \code{fits} (a
+named list of \code{"gkwqreg"} objects, one per level), \code{taus}, \code{family}, \code{anchor},
+\code{parts}, \code{call} and \code{nobs}. Each level is a separate likelihood, so the
+container has no single \code{logLik()}; take it from an individual fit.
 }
 \description{
-Fits a regression for the conditional quantile of a response in \verb{(0,1)} at a
-quantile level fixed in advance. For that level the distribution is
-reparametrized so that one of its parameters \emph{is} the conditional quantile,
-which is then modelled directly; the remaining parameters may carry their own
-regressions.
+Fits a regression model for the conditional \eqn{\tau}-quantile of a response
+confined to the open unit interval \eqn{(0,1)}, at a level \eqn{\tau} that the
+analyst fixes in advance. The Generalized Kumaraswamy (GKw) distribution is
+reparametrized so that one of its five parameters \emph{is} the conditional
+\eqn{\tau}-quantile \eqn{\mu_\tau}; that parameter is then modelled directly
+through a link function, while the parameters left free may carry regressions
+of their own. Estimation is by maximum likelihood with exact gradients from
+automatic differentiation.
+
+Seven nested families are available (\code{kw}, \code{ekw}, \code{kkw}, \code{bkw}, \code{gkw}, \code{mc},
+\code{beta}), so the shape of the conditional distribution is chosen by model
+selection rather than assumed. Unlike check-function quantile regression, a
+single fit carries a complete conditional distribution: every other quantile,
+the density, the mean and the variance are all available from it.
 }
+\section{The distribution and its quantile function}{
+
+For \eqn{0<y<1}, with \eqn{\alpha,\beta,\gamma,\lambda>0} and
+\eqn{\delta\ge 0}, the GKw density (Carrasco, Ferrari and Cordeiro, 2010) is
+
+\deqn{f(y;\alpha,\beta,\gamma,\delta,\lambda)=
+  \frac{\lambda\alpha\beta}{B(\gamma,\delta+1)}\,
+  y^{\alpha-1}\,(1-y^{\alpha})^{\beta-1}\,
+  \bigl[1-(1-y^{\alpha})^{\beta}\bigr]^{\gamma\lambda-1}\,
+  \bigl\{1-\bigl[1-(1-y^{\alpha})^{\beta}\bigr]^{\lambda}\bigr\}^{\delta}.}{
+  f(y) = (lambda*alpha*beta / B(gamma, delta+1)) * y^(alpha-1) *
+         (1 - y^alpha)^(beta-1) * [1 - (1 - y^alpha)^beta]^(gamma*lambda-1) *
+         [1 - (1 - (1 - y^alpha)^beta)^lambda]^delta.}
+
+Writing \eqn{v=1-(1-y^{\alpha})^{\beta}}{v = 1 - (1 - y^alpha)^beta}, the distribution function is the
+regularized incomplete beta function \eqn{F(y)=I_{v^{\lambda}}(\gamma,\delta+1)}{F(y) = I[v^lambda](gamma, delta+1)},
+which inverts in closed form. With
+\eqn{z_\tau=I^{-1}_\tau(\gamma,\delta+1)}{z_tau = I^-1_tau(gamma, delta+1)}, that is \code{qbeta(tau, gamma, delta + 1)},
+
+\deqn{Q(\tau)=\Bigl\{1-\bigl[1-z_\tau^{1/\lambda}\bigr]^{1/\beta}\Bigr\}^{1/\alpha}.}{
+  Q(tau) = ( 1 - [1 - z_tau^(1/lambda)]^(1/beta) )^(1/alpha).}
+
+Two special cases keep the incomplete beta out of the computation entirely:
+\eqn{z_\tau=\tau} when \eqn{\gamma=1,\delta=0} (families \code{kw}, \code{ekw}), and
+\eqn{z_\tau=1-(1-\tau)^{1/(\delta+1)}}{z_tau = 1 - (1-tau)^(1/(delta+1))} when \eqn{\gamma=1} (family \code{kkw}).
+}
+
+\section{The quantile reparametrization (the anchor)}{
+
+Fix \eqn{\tau} and set \eqn{\mu=Q(\tau)}. Rearranging the quantile function
+gives the master identity
+
+\deqn{\mu^{\alpha}=1-\bigl(1-z_\tau^{1/\lambda}\bigr)^{1/\beta},}{
+  mu^alpha = 1 - (1 - z_tau^(1/lambda))^(1/beta),}
+
+from which any one of \eqn{\alpha}, \eqn{\beta} or \eqn{\lambda} can be solved
+for in closed form:
+
+\deqn{\alpha=\frac{\log\bigl(1-(1-z_\tau^{1/\lambda})^{1/\beta}\bigr)}{\log\mu},
+  \qquad
+  \beta=\frac{\log\bigl(1-z_\tau^{1/\lambda}\bigr)}{\log(1-\mu^{\alpha})},
+  \qquad
+  \lambda=\frac{\log z_\tau}{\log\bigl(1-(1-\mu^{\alpha})^{\beta}\bigr)}.}{
+  alpha  = log(1 - (1 - z_tau^(1/lambda))^(1/beta)) / log(mu),
+  beta   = log(1 - z_tau^(1/lambda)) / log(1 - mu^alpha),
+  lambda = log(z_tau) / log(1 - (1 - mu^alpha)^beta).}
+
+The parameter eliminated this way is the \strong{anchor}. Each solve is a ratio of
+two logarithms of numbers in \eqn{(0,1)}, hence strictly positive and finite
+for every \eqn{\mu,\tau\in(0,1)}{mu, tau in (0,1)} and every admissible value of the remaining
+parameters. No box constraint is ever needed, which is what makes an
+unconstrained optimizer safe here.
+
+Setting \eqn{\gamma=1}, \eqn{\delta=0}, \eqn{\lambda=1} gives \eqn{z_\tau=\tau}
+and reduces the \eqn{\beta}-solve to
+\eqn{\beta=\log(1-\tau)/\log(1-\mu^{\alpha})}{beta = log(1-tau) / log(1-mu^alpha)}, which is exactly the
+Kumaraswamy quantile (median-dispersion) reparametrization of Mitnik and Baek
+(2013). The general construction therefore contains the established
+two-parameter case as a slice.
+
+\eqn{\gamma} and \eqn{\delta} admit no closed-form solve: they enter only
+through \eqn{z_\tau}. Family \code{beta} is anchored on \eqn{\gamma} by a bracketed
+root of \eqn{I_\mu(\gamma,\delta+1)=\tau}{I_mu(gamma, delta+1) = tau}, which always exists because the
+left-hand side sweeps all of \eqn{(0,1)} as \eqn{\gamma} ranges over
+\eqn{(0,\infty)}. The \eqn{\delta}-solve is inadmissible in every family: it
+would require \eqn{\tau>\mu^{\gamma}}{tau > mu^gamma}, which nothing guarantees.
+}
+
+\section{The regression and its estimating equations}{
+
+For observation \eqn{i}, with \eqn{\tau} fixed,
+
+\deqn{g_\mu(\mu_{\tau i}) = \mathbf{x}_i^{\top}\boldsymbol\beta_\mu,
+  \qquad
+  g_k(\theta_{ki}) = \mathbf{x}_{ki}^{\top}\boldsymbol\beta_k,}{
+  g_mu(mu_i) = x_i' b_mu,      g_k(theta_ki) = x_ki' b_k,}
+
+where \eqn{g_\mu} maps \eqn{(0,1)\to\mathbb{R}}{(0,1) -> R} (logit by default) and each
+\eqn{g_k} maps \eqn{(0,\infty)\to\mathbb{R}}{(0,Inf) -> R} (log by default), one equation per
+non-anchored parameter \eqn{k}. The anchored parameter is \emph{computed} from
+\eqn{(\mu_{\tau i},\tau,\theta_i)}{(mu_i, tau, theta_i)} by the closed form above; it is never a free
+coefficient. The log-likelihood is the ordinary GKw log-likelihood evaluated at
+the reconstructed parameter vector,
+
+\deqn{\ell(\boldsymbol\beta)=\sum_{i=1}^{n} w_i \,
+  \log f\bigl(y_i;\alpha_i,\beta_i,\gamma_i,\delta_i,\lambda_i\bigr),}{
+  l(b) = sum_i w_i * log f(y_i; alpha_i, beta_i, gamma_i, delta_i, lambda_i),}
+
+and the score \eqn{\partial\ell/\partial\boldsymbol\beta}{dl/db} is obtained by
+automatic differentiation through the anchor solve, so the chain rule through
+the reparametrization is exact rather than approximated. Maximization uses
+\code{\link[stats:nlminb]{stats::nlminb()}} or \code{\link[stats:optim]{stats::optim()}}; see \code{\link[=gkwq_control]{gkwq_control()}}.
+
+Standard errors come from the observed information, \code{\link[stats:optimHess]{stats::optimHess()}}
+applied to the automatic-differentiation gradient. The naive \eqn{J^\top H J}{J' H J}
+transformation of the unreparametrized Hessian is \strong{wrong} in a regression
+because it omits the curvature term \eqn{\sum_k g_k \nabla^2\theta_k}{sum_k g_k grad^2 theta_k}, and is
+never used. See \code{\link[=vcov.gkwqreg]{vcov.gkwqreg()}}.
+
+\code{tau} is fixed, never estimated. The profile likelihood in \eqn{\tau} is
+exactly flat -- for any other level there is a parameter value reproducing the
+same distribution -- so \eqn{\tau} indexes the \emph{question asked of the data},
+not the model fitted to it.
+}
+
+\section{The multi-part formula}{
+
+The right-hand side is split into parts by \code{|}, as in the \pkg{Formula}
+package. The contract is fixed and is reported by \code{\link[=gkwq_parts]{gkwq_parts()}}:
+\enumerate{
+\item \strong{Part one is always the conditional \eqn{\tau}-quantile}, \code{mu}.
+\item The remaining parts follow the family's own parameter order
+(\eqn{\alpha}, \eqn{\beta}, \eqn{\gamma}, \eqn{\delta}, \eqn{\lambda})
+\strong{with the anchored parameter removed}, because that one is computed
+rather than estimated.
+\item Omitted trailing parts default to \code{~ 1}, so \code{y ~ x} and \code{y ~ x | 1} are the
+same model.
+\item Supplying more parts than the family has is an error, not a silent
+truncation; the message names the parts the model expects.
+}
+
+Because the anchor changes which parameter disappears, it also changes what
+the later parts mean. Always confirm with \code{gkwq_parts(family, anchor)}:
+
+\if{html}{\out{<div class="sourceCode">}}\preformatted{gkwq_parts("kw")            # "mu" "alpha"
+gkwq_parts("kw", "alpha")   # "mu" "beta"
+gkwq_parts("gkw")           # "mu" "alpha" "gamma" "delta" "lambda"
+}\if{html}{\out{</div>}}
+
+So for \code{family = "gkw"}, \code{y ~ x1 | x2 | 1 | x3} puts \code{x1} in the quantile,
+\code{x2} in \eqn{\alpha}, an intercept in \eqn{\gamma}, \code{x3} in \eqn{\delta}, and
+an intercept in \eqn{\lambda}. Offsets for a specific part are written as an
+\code{offset()} term inside that part.
+}
+
+\section{The seven families}{
+
+Every family is a constrained GKw, so they nest: \code{kw} inside \code{ekw} inside
+\code{kkw} inside \code{gkw}, and \code{bkw} and \code{beta} inside \code{gkw} as well. Nested pairs
+can be compared by a likelihood-ratio test (\code{\link[=anova.gkwqreg]{anova.gkwqreg()}}); non-nested
+pairs by AIC, BIC or \code{\link[=vuong_test]{vuong_test()}}.\tabular{lllll}{
+   family \tab free parameters \tab constraints \tab default anchor \tab other anchors \cr
+   \code{kw} \tab \eqn{\alpha,\beta}{alpha, beta} \tab \eqn{\gamma=1,\ \delta=0,\ \lambda=1}{gamma=1, delta=0, lambda=1} \tab \eqn{\beta}{beta} \tab \eqn{\alpha}{alpha} \cr
+   \code{ekw} \tab \eqn{\alpha,\beta,\lambda}{alpha, beta, lambda} \tab \eqn{\gamma=1,\ \delta=0}{gamma=1, delta=0} \tab \eqn{\beta}{beta} \tab \eqn{\alpha}{alpha}, \eqn{\lambda}{lambda} \cr
+   \code{kkw} \tab \eqn{\alpha,\beta,\delta,\lambda}{alpha, beta, delta, lambda} \tab \eqn{\gamma=1}{gamma=1} \tab \eqn{\beta}{beta} \tab \eqn{\alpha}{alpha}, \eqn{\lambda}{lambda} \cr
+   \code{bkw} \tab \eqn{\alpha,\beta,\gamma,\delta}{alpha, beta, gamma, delta} \tab \eqn{\lambda=1}{lambda=1} \tab \eqn{\beta}{beta} \tab \eqn{\alpha}{alpha} \cr
+   \code{gkw} \tab \eqn{\alpha,\beta,\gamma,\delta,\lambda}{all five} \tab none \tab \eqn{\beta}{beta} \tab \eqn{\alpha}{alpha}, \eqn{\lambda}{lambda} \cr
+   \code{mc} \tab \eqn{\gamma,\delta,\lambda}{gamma, delta, lambda} \tab \eqn{\alpha=\beta=1}{alpha=beta=1} \tab \eqn{\lambda}{lambda} \tab none \cr
+   \code{beta} \tab \eqn{\gamma,\delta}{gamma, delta} \tab \eqn{\alpha=\beta=\lambda=1}{alpha=beta=lambda=1} \tab \eqn{\gamma}{gamma} \tab none \cr
+}
+
+
+\code{mc} fixes \eqn{\alpha=\beta=1}{alpha=beta=1}, so neither is available and the
+\eqn{\lambda}-solve is forced; it collapses to the exact form
+\eqn{\lambda=\log z_\tau/\log\mu}{lambda = log(z_tau) / log(mu)}. \code{beta} fixes \eqn{\alpha=\beta=\lambda=1}{alpha=beta=lambda=1},
+leaving \eqn{\gamma} as the only admissible anchor and the only one solved
+numerically. \code{\link[=gkwq_anchors]{gkwq_anchors()}} lists the admissible anchors for a family, the
+default first.
+
+Two identifiability facts are enforced rather than left to the user. When
+\eqn{\delta=0} with \eqn{\gamma} free, \eqn{I_u(\gamma,1)=u^{\gamma}}{I_u(gamma,1) = u^gamma} and only
+the product \eqn{\gamma\lambda}{gamma*lambda} is identified, so a \eqn{\lambda}-anchor there
+is refused with an error. And \code{family = "gkw"} is weakly identified in \emph{any}
+parametrization, with information-matrix condition numbers of order
+\eqn{10^{8}}{1e8} to \eqn{10^{11}}{1e11}; it warns, and \code{summary()} prints the condition
+number so the warning can be checked.
+}
+
+\section{The anchor is a modeling choice}{
+
+\code{anchor} names the parameter eliminated in favour of the conditional quantile.
+It looks like a reparametrization and, when every remaining parameter is
+regressed on at least the covariates used for \code{mu}, it is one: the likelihood
+is identical whichever anchor is chosen. It stops being one as soon as \code{mu}
+varies with covariates while a nuisance parameter is held constant. Anchoring
+on \code{beta} then asserts "\code{alpha} constant, \code{beta_i = f(mu_i, alpha)}";
+anchoring on \code{alpha} asserts the reverse, and the two trace different paths
+through parameter space. In the design study the two differed by 131 in
+log-likelihood and by 41\% in the coefficient of interest.
+
+Two anchors on the same data give non-nested models of equal dimension:
+compare them by AIC, BIC or Vuong's test, \strong{not} by a likelihood-ratio test.
+\code{\link[=anova.gkwqreg]{anova.gkwqreg()}} refuses the comparison rather than printing a number that
+would mean nothing. Regressing the nuisance parameters on the same covariates
+as \code{mu} makes the fit largely anchor-insensitive, and is recommended whenever
+theory does not dictate an anchor.
+
+The two closed-form solves also fail in \strong{opposite tails}: the
+\eqn{\beta}-solve overflows as \eqn{\mu\to0}{mu -> 0} and the
+\eqn{\alpha}-solve as \eqn{\mu\to1}{mu -> 1}. Neither dominates, so where the response mass lies is a
+legitimate reason to prefer one; see the \code{eps_mu} entry of \code{\link[=gkwq_control]{gkwq_control()}}
+for the arithmetic.
+}
+
+\section{Interpreting the coefficients}{
+
+Under the default logit link for the quantile part,
+\eqn{\exp(\beta_{\mu j})}{exp(b_j)} is the multiplicative effect of a one-unit increase
+in \eqn{x_j} on the \strong{odds of the conditional \eqn{\tau}-quantile},
+\eqn{\mu_\tau/(1-\mu_\tau)}{mu/(1 - mu)}. It is \emph{not} an effect on the odds of an event, and
+\emph{not} an effect on a mean. \code{summary()} labels the block accordingly.
+
+On the scale of the quantile itself the effect is
+
+\deqn{\frac{\partial Q_\tau(x)}{\partial x_j}
+  = \beta_{\mu j}\,\frac{d\mu}{d\eta}
+  = \beta_{\mu j}\,\mu_\tau(1-\mu_\tau) \quad\text{(logit link)},}{
+  dQ(tau | x) / dx_j = b_j * (dmu/deta) = b_j * mu_tau * (1 - mu_tau)
+  under the logit link,}
+
+reported with delta-method standard errors by \code{\link[=marginal_effects]{marginal_effects()}}. A
+covariate that also appears in a nuisance part does not change this
+expression: \code{mu} \emph{is} the quantile, so a nuisance part alters the spread of
+the conditional distribution, not the quantile being modelled. That separation
+is a genuine convenience of this parametrization.
+
+Nuisance coefficients are on the log scale by default, so \code{exp()} of one is a
+multiplicative effect on the corresponding shape parameter.
+}
+
 \section{What \code{fitted()} returns}{
 
 \strong{\code{\link[=fitted]{fitted()}} returns the fitted conditional \code{tau}-quantile, not the
 conditional mean.} This is the single most important difference from
 \code{gkwreg}, which fits the same seven families with mean semantics. A
-\code{type = "mean"} escape hatch exists but is never the default.
-}
-
-\section{The anchor is a modeling choice}{
-
-\code{anchor} names the parameter eliminated in favour of the conditional
-quantile. It looks like a reparametrization and, when every remaining
-parameter is regressed on at least the covariates used for \code{mu}, it is one:
-the likelihood is identical whichever anchor is chosen. It stops being one as
-soon as \code{mu} varies with covariates while a nuisance parameter is held
-constant. Anchoring on \code{beta} then asserts "\code{alpha} constant,
-\code{beta_i = f(mu_i, alpha)}"; anchoring on \code{alpha} asserts the reverse, and the
-two trace different paths through parameter space. In the design study the
-two differed by 131 in log-likelihood and by 41\% in the coefficient of
-interest.
-
-Two anchors on the same data give non-nested models of equal dimension:
-compare them by AIC, BIC or Vuong's test, \strong{not} by a likelihood-ratio test.
-Regressing the nuisance parameters on the same covariates as \code{mu} makes the
-fit largely anchor-insensitive, and is recommended whenever theory does not
-dictate an anchor.
-}
-
-\section{Interpreting the coefficients}{
-
-Under the default logit link, \code{exp(beta_j)} is the multiplicative effect of a
-one-unit increase in \code{x_j} on the \strong{odds of the conditional \code{tau}-quantile},
-\code{mu_tau / (1 - mu_tau)}. It is not an effect on the odds of an event and not
-an effect on a mean. The marginal effect on the quantile itself is
-\code{beta_j * mu_tau * (1 - mu_tau)}; see \code{\link[=marginal_effects]{marginal_effects()}}.
+\code{type = "mean"} escape hatch exists but is never the default. For the same
+reason the class deliberately does not inherit from \code{"gkwreg"}: a missing
+method must error rather than silently dispatch mean semantics on a quantile
+object.
 }
 
 \examples{
-set.seed(1)
-n <- 200
-x <- runif(n, -2, 2)
-mu <- plogis(0.4 + 1.1 * x)
-# generate under the beta anchor at the median, with alpha = 2
-y <- gkwdist::rkw(n, alpha = 2, beta = log1p(-0.5) / log1p(-mu^2))
+## -------------------------------------------------------------------------
+## 1. A Kumaraswamy median regression, end to end
+## -------------------------------------------------------------------------
+## Simulate a response whose conditional MEDIAN is logit-linear in x1 and x2.
+## The generator is the beta anchor itself: a Kumaraswamy with
+## beta = log(1 - tau) / log(1 - mu^alpha) has its tau-quantile exactly at mu.
+set.seed(2024)
+n  <- 300
+x1 <- runif(n, -2, 2)
+x2 <- rbinom(n, 1, 0.5)
+mu <- plogis(0.4 + 1.1 * x1 - 0.6 * x2)      # the true conditional median
+y  <- gkwdist::rkw(n, alpha = 2, beta = log(1 - 0.5) / log(1 - mu^2))
+dat <- data.frame(y = y, x1 = x1, x2 = x2)
 
-fit <- gkwqreg(y ~ x, tau = 0.5, family = "kw")
+fit <- gkwqreg(y ~ x1 + x2, data = dat, tau = 0.5, family = "kw")
 summary(fit)
-head(fitted(fit))          # conditional medians, NOT means
+## The "mu" block should recover (0.4, 1.1, -0.6) up to sampling error, and
+## the "alpha" block log(2) = 0.693 -- alpha is modelled on the log scale.
+## The footer reports "Anchored parameter: beta", the reminder that beta was
+## computed from the fitted median rather than estimated, plus the pinball
+## loss and the empirical coverage, which should sit near tau.
+
+## -------------------------------------------------------------------------
+## 2. Reading the coefficients: quantile odds, not event odds
+## -------------------------------------------------------------------------
+exp(coef(fit, part = "mu"))
+## exp(b_x1) should be close to exp(1.1) = 3.0: a one-unit rise in x1
+## multiplies the ODDS OF THE CONDITIONAL MEDIAN, mu/(1 - mu), by about 3.
+## It is not the odds of an event, and not an effect on a mean.
+
+## On the quantile scale itself the effect is b_j * mu * (1 - mu), i.e. in
+## probability units, averaged over the sample:
+marginal_effects(fit)
+
+## -------------------------------------------------------------------------
+## 3. Fitted values are quantiles
+## -------------------------------------------------------------------------
+head(fitted(fit))                     # conditional medians
+head(fitted(fit, type = "mean"))      # conditional means, by quadrature
+mean(dat$y <= fitted(fit))            # empirical coverage; target is tau
+
+## -------------------------------------------------------------------------
+## 4. Prediction: one fit, a whole conditional distribution
+## -------------------------------------------------------------------------
+nd <- data.frame(x1 = c(-1, 0, 1), x2 = 0)
+predict(fit, newdata = nd)                        # conditional medians
+## Other quantiles read off the SAME fitted distribution -- these cannot
+## cross, because they are quantiles of one proper distribution function:
+predict(fit, newdata = nd, tau = c(0.1, 0.5, 0.9))
+
+\donttest{
+## -------------------------------------------------------------------------
+## 5. The formula grammar
+## -------------------------------------------------------------------------
+gkwq_parts("kw")             # "mu" "alpha" -- part 1 is always the quantile
+gkwq_parts("kw", "alpha")    # "mu" "beta"  -- the anchor is what disappears
+gkwq_parts("gkw")            # five parts, in family order
+
+## Give the shape parameter a regression of its own. Omitted trailing parts
+## default to ~ 1, so `y ~ x1 + x2` is `y ~ x1 + x2 | 1`.
+fit_sat <- gkwqreg(y ~ x1 + x2 | x1 + x2, data = dat, tau = 0.5,
+                   family = "kw")
+anova(fit, fit_sat)          # nested, same anchor: an ordinary LR test
+
+## -------------------------------------------------------------------------
+## 6. The anchor is a modeling choice
+## -------------------------------------------------------------------------
+fb <- gkwqreg(y ~ x1, data = dat, tau = 0.5, family = "kw", anchor = "beta")
+fa <- gkwqreg(y ~ x1, data = dat, tau = 0.5, family = "kw", anchor = "alpha")
+c(beta = as.numeric(logLik(fb)), alpha = as.numeric(logLik(fa)))
+## Same number of parameters, different likelihood: these are NON-NESTED
+## models, so compare them by AIC/BIC or a Vuong test, never by an LR test.
+vuong_test(fb, fa)
+
+## Saturating the nuisance part makes the choice nearly immaterial, which is
+## the recommended default when theory does not dictate an anchor:
+fbs <- gkwqreg(y ~ x1 | x1, data = dat, tau = 0.5, family = "kw",
+               anchor = "beta")
+fas <- gkwqreg(y ~ x1 | x1, data = dat, tau = 0.5, family = "kw",
+               anchor = "alpha")
+c(beta = coef(fbs)[["mu:x1"]], alpha = coef(fas)[["mu:x1"]])
+
+## -------------------------------------------------------------------------
+## 7. A grid of quantile levels
+## -------------------------------------------------------------------------
+fits <- gkwqreg(y ~ x1, data = dat, tau = c(0.1, 0.25, 0.5, 0.75, 0.9),
+                family = "kw")
+round(coef(fits), 3)   # one column per level: the estimated quantile process
+## The slope on x1 growing with tau is heteroskedasticity that a mean
+## regression would average away.
+## Independently fitted levels are not ordered by construction; here none
+## cross, but nothing guaranteed that, which is exactly what this reports:
+check_crossing(fits)
+
+## -------------------------------------------------------------------------
+## 8. Choosing a family
+## -------------------------------------------------------------------------
+fit_ekw <- gkwqreg(y ~ x1 + x2, data = dat, tau = 0.5, family = "ekw")
+anova(fit, fit_ekw)    # kw is nested in ekw: one degree of freedom
+## Check loss is the criterion a quantile fit targets, so read it beside
+## AIC -- and read the `converged` column before either of them, since a
+## richer family that failed to converge can still post the best logLik:
+compare_families(fit, families = c("kw", "ekw", "kkw", "beta"))
+}
 
 }
 \references{
+Carrasco, J. M. F., Ferrari, S. L. P. and Cordeiro, G. M. (2010).
+A generalized Kumaraswamy distribution.
+
+Chernozhukov, V., Fernandez-Val, I. and Galichon, A. (2010). Quantile and
+probability curves without crossing. \emph{Econometrica} \strong{78}, 1093-1125.
+
+Cox, D. R. and Reid, N. (1987). Parameter orthogonality and approximate
+conditional inference. \emph{Journal of the Royal Statistical Society B} \strong{49},
+1-39.
+
+Koenker, R. and Bassett, G. (1978). Regression quantiles. \emph{Econometrica}
+\strong{46}, 33-50.
+
 Mitnik, P. A. and Baek, S. (2013). The Kumaraswamy distribution:
 median-dispersion re-parameterizations. \emph{Statistical Papers} \strong{54}, 177-192.
 \doi{10.1007/s00362-011-0417-y}
-
-Carrasco, J. M. F., Ferrari, S. L. P. and Cordeiro, G. M. (2010).
-A generalized Kumaraswamy distribution.
 }
 \seealso{
-\code{\link[=gkwq_parts]{gkwq_parts()}} for the formula contract, \code{\link[=marginal_effects]{marginal_effects()}} for
-effects on the quantile scale, \code{\link[=quantile_process]{quantile_process()}} for a grid of levels,
-\code{\link[=check_crossing]{check_crossing()}} for crossing across levels.
+\code{\link[=gkwq_parts]{gkwq_parts()}} and \code{\link[=gkwq_anchors]{gkwq_anchors()}} for the formula and anchor contracts;
+\code{\link[=gkwq_control]{gkwq_control()}} for optimizer, starting-value and covariance settings;
+\code{\link[=predict.gkwqreg]{predict.gkwqreg()}}, \code{\link[=fitted.gkwqreg]{fitted.gkwqreg()}} and \code{\link[=residuals.gkwqreg]{residuals.gkwqreg()}} for what
+comes out of a fit; \code{\link[=marginal_effects]{marginal_effects()}} for effects on the quantile scale;
+\code{\link[=vcov.gkwqreg]{vcov.gkwqreg()}} and \code{\link[=confint.gkwqreg]{confint.gkwqreg()}} for inference;
+\code{\link[=anova.gkwqreg]{anova.gkwqreg()}}, \code{\link[=vuong_test]{vuong_test()}} and \code{\link[=compare_families]{compare_families()}} for model choice;
+\code{\link[=quantile_process]{quantile_process()}}, \code{\link[=check_crossing]{check_crossing()}}, \code{\link[=rearrange]{rearrange()}} and \code{\link[=pinball]{pinball()}} for
+quantile-specific tooling; \code{\link[=plot.gkwqreg]{plot.gkwqreg()}} for diagnostics;
+\code{\link[=gkwq_quantile]{gkwq_quantile()}} for the closed-form quantile function on its own.
+
+Other model fitting:
+\code{\link[=gkwq_control]{gkwq_control()}}
 }
+\concept{model fitting}

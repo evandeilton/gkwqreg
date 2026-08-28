@@ -2,28 +2,132 @@
 % Please edit documentation in R/gkwqreg-families.R
 \name{gkwq_parts}
 \alias{gkwq_parts}
-\title{Formula parts for a family and anchor}
+\title{The multi-part formula contract for a family and anchor}
 \usage{
 gkwq_parts(family = "kw", anchor = NULL)
 }
 \arguments{
-\item{family}{One of \code{"kw"}, \code{"ekw"}, \code{"kkw"}, \code{"bkw"}, \code{"gkw"}, \code{"mc"},
-\code{"beta"}.}
+\item{family}{Character, one of \code{"kw"}, \code{"ekw"}, \code{"kkw"}, \code{"bkw"}, \code{"gkw"},
+\code{"mc"}, \code{"beta"}. Partial matching is applied. An unrecognised name is an
+error.}
 
-\item{anchor}{The parameter eliminated in favour of the conditional quantile,
-or \code{NULL} for the family default. See \code{\link[=gkwqreg]{gkwqreg()}}.}
+\item{anchor}{Character or \code{NULL}. The parameter eliminated in favour of the
+conditional quantile. \code{NULL}, the default, selects the family default,
+which is the first element of \code{\link[=gkwq_anchors]{gkwq_anchors()}}. An anchor the family does
+not admit raises an error naming those it does.}
 }
 \value{
-A character vector naming the formula parts in order.
+A character vector naming the formula parts in order. Its length is
+one plus the number of free parameters remaining after the anchor is
+removed, and its first element is always \code{"mu"}.
 }
 \description{
-The multi-part formula contract, exported so that users, error messages and
-documentation cannot disagree about it. Part one is always \code{mu}, the
-conditional quantile; the remaining parts follow the family's own parameter
-order with the anchored parameter removed.
+Reports, in order, the names of the right-hand formula parts that
+\code{\link[=gkwqreg]{gkwqreg()}} will read for a given family and anchor. The contract is
+exported as a function rather than merely described in prose, so that user
+code, error messages and this manual cannot disagree about it.
 }
+\details{
+A \code{gkwqreg} model formula carries one right-hand part per modelled
+parameter, the parts separated by \code{|}, as in \code{y ~ x1 + x2 | z | 1}. Two
+rules fix the meaning of every part.
+\enumerate{
+\item \strong{Part one is always \code{mu}}, the conditional \eqn{\tau}-quantile of the
+response, \eqn{\mu_\tau(x) = Q(\tau \mid x)}. This holds for every family
+and every anchor without exception. It is the parameter that the
+reparametrization creates, and the reason the model is a quantile
+regression rather than a mean regression.
+\item \strong{The remaining parts follow the family's own parameter order, with the
+anchored parameter removed.} The anchor is the parameter eliminated in
+favour of \eqn{\mu}; having been solved for, it is no longer free, so it
+receives no formula part. See \code{\link[=gkwq_anchors]{gkwq_anchors()}}.
+}
+
+The Kumaraswamy family, for instance, has parameters
+\eqn{(\alpha, \beta)}. Anchoring on \eqn{\beta}, its default, leaves
+\code{mu | alpha}; anchoring on \eqn{\alpha} leaves \code{mu | beta}. These are
+different models, not different labels for one model, unless every remaining
+part is regressed on the same covariates as \code{mu}.
+}
+\section{Omitted and excess parts}{
+
+Trailing parts that are omitted default to \code{~ 1}, an intercept only, so
+\code{y ~ x} and \code{y ~ x | 1} describe the same Kumaraswamy model. Supplying
+\strong{more} parts than the model has is an error, and the message names the
+parts the model expected. This is deliberate: silently discarding the
+surplus would conceal a genuine mistake, most often a formula written for a
+different anchor or a different family.
+}
+
+\section{The family parameter sets}{
+
+Each family holds some of the five Generalized Kumaraswamy parameters
+\eqn{(\alpha, \beta, \gamma, \delta, \lambda)} at structural constants and
+leaves the rest free. The free set, listed in the family's own order, is
+what rule two refers to.\tabular{lll}{
+   family \tab free parameters \tab held fixed \cr
+   \code{"kw"} \tab \code{alpha}, \code{beta} \tab \eqn{\gamma = 1}, \eqn{\delta = 0}, \eqn{\lambda = 1} \cr
+   \code{"ekw"} \tab \code{alpha}, \code{beta}, \code{lambda} \tab \eqn{\gamma = 1}, \eqn{\delta = 0} \cr
+   \code{"kkw"} \tab \code{alpha}, \code{beta}, \code{delta}, \code{lambda} \tab \eqn{\gamma = 1} \cr
+   \code{"bkw"} \tab \code{alpha}, \code{beta}, \code{gamma}, \code{delta} \tab \eqn{\lambda = 1} \cr
+   \code{"gkw"} \tab \code{alpha}, \code{beta}, \code{gamma}, \code{delta}, \code{lambda} \tab none \cr
+   \code{"mc"} \tab \code{gamma}, \code{delta}, \code{lambda} \tab \eqn{\alpha = 1}, \eqn{\beta = 1} \cr
+   \code{"beta"} \tab \code{gamma}, \code{delta} \tab \eqn{\alpha = 1}, \eqn{\beta = 1}, \eqn{\lambda = 1} \cr
+}
+
+
+Removing the anchor from the free set and prefixing \code{mu} gives the parts.
+Under the default anchor the number of parts equals the number of free
+parameters, since one parameter is removed and \code{mu} is added.
+}
+
 \examples{
-gkwq_parts("kw")            # "mu" "alpha"
-gkwq_parts("kw", "alpha")   # "mu" "beta"
-gkwq_parts("gkw")           # "mu" "alpha" "gamma" "delta" "lambda"
+## Rule one: the first part is always the conditional quantile.
+gkwq_parts("kw")
+## [1] "mu"    "alpha"
+
+## Rule two: the anchored parameter is dropped from the family's own order.
+gkwq_parts("kw", anchor = "alpha")
+## [1] "mu"   "beta"
+
+## The five-parameter family under each anchor it admits.
+for (a in gkwq_anchors("gkw")) {
+  cat(sprintf("\%-7s \%s\n", a, paste(gkwq_parts("gkw", a), collapse = " | ")))
+}
+## beta    mu | alpha | gamma | delta | lambda
+## alpha   mu | beta | gamma | delta | lambda
+## lambda  mu | alpha | beta | gamma | delta
+
+## The whole contract at default anchors, at a glance.
+for (f in c("kw", "ekw", "kkw", "bkw", "gkw", "mc", "beta")) {
+  cat(sprintf("\%-5s \%s\n", f, paste(gkwq_parts(f), collapse = " | ")))
+}
+## kw    mu | alpha
+## ekw   mu | alpha | lambda
+## kkw   mu | alpha | delta | lambda
+## bkw   mu | alpha | gamma | delta
+## gkw   mu | alpha | gamma | delta | lambda
+## mc    mu | gamma | delta
+## beta  mu | delta
+
+## Trailing parts may be omitted and default to ~ 1.
+set.seed(1)
+dat <- data.frame(x = runif(50), y = runif(50, 0.2, 0.8))
+f1 <- gkwqreg(y ~ x,     data = dat, tau = 0.5, family = "kw")
+f2 <- gkwqreg(y ~ x | 1, data = dat, tau = 0.5, family = "kw")
+all.equal(coef(f1), coef(f2))
+## [1] TRUE
+
+## Supplying more parts than the model has is an error, not a silent drop,
+## and the message names the parts that were expected.
+err <- try(gkwqreg(y ~ x | x | x, data = dat, tau = 0.5, family = "kw"),
+           silent = TRUE)
+cat(conditionMessage(attr(err, "condition")), "\n")
+## formula has 3 right-hand parts but family 'kw' with anchor 'beta' takes
+##   at most 2: mu | alpha.
+##   Parts are separated by `|`, in the order given by gkwq_parts("kw", "beta").
+}
+\seealso{
+\code{\link[=gkwq_anchors]{gkwq_anchors()}} for which anchors a family admits and why;
+\code{\link[=gkwqreg]{gkwqreg()}} for the model these parts describe.
 }

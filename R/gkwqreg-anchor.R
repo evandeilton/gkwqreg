@@ -39,14 +39,111 @@
 
 #' The Generalized Kumaraswamy quantile function, in closed form
 #'
-#' `Q(tau) = {1 - [1 - z^(1/lambda)]^(1/beta)}^(1/alpha)` with
-#' `z = qbeta(tau, gamma, delta + 1)`. Computed entirely in the log domain.
+#' Evaluates \eqn{Q(\tau)}, the \eqn{\tau}-quantile of the five-parameter
+#' Generalized Kumaraswamy distribution on the unit interval. The distribution
+#' function inverts analytically, so no root finding is involved. That closed
+#' form is what makes the fixed-level reparametrization behind [gkwqreg()]
+#' possible at all: because \eqn{Q(\tau)} can be written down, one parameter can
+#' be solved for so that the conditional quantile becomes a parameter itself.
 #'
-#' @param tau Quantile level(s) in `(0,1)`.
-#' @param alpha,beta,gamma,delta,lambda Distribution parameters.
-#' @return A numeric vector of quantiles.
+#' @details
+#' The Generalized Kumaraswamy distribution function at \eqn{y \in (0,1)} is
+#'
+#' \deqn{F(y) = I_{v^\lambda}(\gamma, \delta + 1), \qquad
+#'       v = 1 - (1 - y^\alpha)^\beta,}
+#'
+#' where \eqn{I} denotes the regularized incomplete beta function, that is
+#' `pbeta`. Inverting this expression one layer at a time, and writing
+#' \eqn{z_\tau = I^{-1}_\tau(\gamma, \delta + 1)}, which in R is
+#' `qbeta(tau, gamma, delta + 1)`, gives
+#'
+#' \deqn{Q(\tau) = \left[\, 1 -
+#'   \left\{ 1 - z_\tau^{1/\lambda} \right\}^{1/\beta} \,\right]^{1/\alpha}.}
+#'
+#' Two special cases of \eqn{z_\tau} are worth knowing, because the
+#' sub-families that enjoy them never touch the incomplete beta function at
+#' all. When \eqn{\gamma = 1} and \eqn{\delta = 0} the generator is the identity
+#' and \eqn{z_\tau = \tau}; this covers the `"kw"` and `"ekw"` families. When
+#' \eqn{\gamma = 1} with \eqn{\delta} free,
+#' \eqn{z_\tau = 1 - (1 - \tau)^{1/(\delta + 1)}}; this covers `"kkw"`.
+#'
+#' @section Numerical behaviour:
+#' The expression above is a cascade of two nested complements, each of the
+#' form \eqn{1 - w} with \eqn{w} close to one in the regions that matter. It is
+#' therefore evaluated entirely in the log domain, using a two-branch stable
+#' evaluation of \eqn{\log(1 - e^{x})} for \eqn{x < 0} (Maechler 2012), which
+#' switches between `log(-expm1(x))` and `log1p(-exp(x))` according to the
+#' magnitude of \eqn{x}. Naive evaluation loses precision precisely where a
+#' bounded-response model needs it most: when \eqn{\beta} is large the inner
+#' complement approaches one, a regime the default `beta` anchor visits
+#' routinely.
+#'
+#' Checked against `gkwdist::qgkw` over a 1701-point parameter grid -- seven
+#' levels of \eqn{\tau} spanning 0.01 to 0.99, with each of the five parameters
+#' taking three values -- the largest absolute discrepancy is `2.7e-14`.
+#'
+#' @param tau Numeric vector of quantile levels, strictly inside \eqn{(0,1)}.
+#'   Values outside \eqn{[0,1]} produce `NaN`.
+#' @param alpha,beta Strictly positive shape parameters of the Kumaraswamy
+#'   kernel. \eqn{\alpha} acts on the left tail through \eqn{y^\alpha} and
+#'   \eqn{\beta} on the right tail through \eqn{(1 - y^\alpha)^\beta}.
+#' @param gamma,delta Shape parameters of the beta generator, which enter only
+#'   through \eqn{z_\tau}: \eqn{\gamma} strictly positive, \eqn{\delta}
+#'   non-negative. Their defaults, \eqn{\gamma = 1} and \eqn{\delta = 0}, remove
+#'   the generator.
+#' @param lambda Strictly positive exponentiation parameter, acting on
+#'   \eqn{v^\lambda}. Its default \eqn{\lambda = 1} removes it.
+#'
+#' @return A numeric vector of quantiles in \eqn{(0,1)}, as long as the longest
+#'   argument; all arguments are recycled to that length under the usual R
+#'   rules. Inadmissible or missing inputs propagate as `NaN` or `NA`.
+#'
+#' @seealso [gkwq_anchors()] for the solves that invert this identity in each
+#'   parameter in turn; [gkwq_parts()] for the family parameter sets;
+#'   [gkwqreg()] for the regression model built on it.
+#'
 #' @examples
-#' gkwq_quantile(c(0.1, 0.5, 0.9), alpha = 2, beta = 3)
+#' ## The median of a Kumaraswamy(2, 3) variate. With gamma = 1, delta = 0 and
+#' ## lambda = 1 the generator drops out and Q collapses to the Kumaraswamy
+#' ## quantile [1 - (1 - tau)^(1/beta)]^(1/alpha).
+#' gkwq_quantile(0.5, alpha = 2, beta = 3)
+#' ## [1] 0.454202
+#' all.equal(gkwq_quantile(0.4, alpha = 2, beta = 3),
+#'           (1 - (1 - 0.4)^(1 / 3))^(1 / 2))
+#' ## [1] TRUE
+#'
+#' ## Q is increasing in tau, as any quantile function must be.
+#' round(gkwq_quantile(c(0.05, 0.25, 0.5, 0.75, 0.95), alpha = 2, beta = 3), 4)
+#' ## [1] 0.1302 0.3024 0.4542 0.6083 0.7947
+#'
+#' ## Arguments recycle: one level, three shapes.
+#' round(gkwq_quantile(0.5, alpha = c(1, 2, 4), beta = 3), 4)
+#' ## [1] 0.2063 0.4542 0.6739
+#'
+#' ## Q genuinely inverts F, to machine precision.
+#' y <- c(0.05, 0.30, 0.62, 0.95)
+#' p <- gkwdist::pgkw(y, 2, 3, 1.5, 0.5, 0.8)
+#' max(abs(gkwq_quantile(p, 2, 3, 1.5, 0.5, 0.8) - y))
+#' ## [1] 2.831069e-14
+#'
+#' ## Agreement with the reference implementation across the parameter space:
+#' ## 1701 combinations of level and the five parameters.
+#' g <- expand.grid(t = c(.01, .1, .25, .5, .75, .9, .99), a = c(.5, 1, 2.5),
+#'                  b = c(.7, 1.5, 3), gm = c(.8, 1, 2), d = c(0, .5, 2),
+#'                  L = c(.6, 1, 2))
+#' max(abs(gkwq_quantile(g$t, g$a, g$b, g$gm, g$d, g$L) -
+#'         gkwdist::qgkw(g$t, g$a, g$b, g$gm, g$d, g$L)))
+#' ## [1] 2.738261e-14
+#'
+#' ## The identity that anchoring inverts. Fix a level and a target quantile,
+#' ## then choose beta so that Q(tau) hits the target exactly. This is the
+#' ## "beta" anchor of the "kw" family, the default used by gkwqreg().
+#' tau <- 0.5; mu <- 0.7; alpha <- 2
+#' beta <- log1p(-tau) / log1p(-mu^alpha)
+#' beta
+#' ## [1] 1.029409
+#' gkwq_quantile(tau, alpha = alpha, beta = beta)
+#' ## [1] 0.7   -- the median is the target mu, exactly
 #' @export
 gkwq_quantile <- function(tau, alpha = 1, beta = 1, gamma = 1, delta = 0,
                           lambda = 1) {

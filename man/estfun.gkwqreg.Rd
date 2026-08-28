@@ -7,14 +7,88 @@
 estfun.gkwqreg(x, ...)
 }
 \arguments{
-\item{x}{A \code{"gkwqreg"} fit.}
+\item{x}{A \code{"gkwqreg"} fit, as returned by \code{\link[=gkwqreg]{gkwqreg()}}, still carrying its
+\code{TMB} object in \code{x$obj}.}
 
-\item{...}{Unused.}
+\item{...}{Currently unused.}
 }
 \value{
-An \code{n} by \code{p} matrix of score contributions.
+A numeric matrix with \code{nobs(x)} rows and \code{length(coef(x))} columns,
+the columns named as \code{names(coef(x))} (\code{"part:term"}). Row \code{i} holds the
+score contribution of observation \code{i}.
 }
 \description{
-Supplies the empirical estimating functions so that \code{sandwich::vcovHC()},
-\code{sandwich::vcovCL()} and \code{lmtest::coeftest()} work on \code{"gkwqreg"} fits.
+Returns the empirical estimating functions of the fit: the gradient of each
+observation's log-likelihood contribution with respect to the full stacked
+coefficient vector. This is the "meat" of the sandwich covariance, and
+supplying it in the conventional shape is what makes \code{sandwich::sandwich()},
+\code{sandwich::vcovCL()} and \code{lmtest::coeftest()} work on \code{"gkwqreg"} fits with no
+further glue.
+}
+\details{
+The \code{i}th row is
+\deqn{s_i(\hat\theta) \;=\; \left. \frac{\partial \, \log f(y_i \mid x_i;
+  \theta)}{\partial \theta} \right|_{\theta = \hat\theta},}
+obtained by applying \code{\link[numDeriv:jacobian]{numDeriv::jacobian()}} to the vector of per-observation
+log-likelihood contributions that the \code{TMB} object reports. Numerical
+differentiation of the reported likelihood is used rather than a second
+automatic-differentiation pass because the tape returns the summed objective;
+the per-observation decomposition lives in the report, not on the tape.
+
+At the maximum the column sums are zero up to optimizer and differentiation
+tolerance, which is a useful convergence check in its own right: column sums
+that are not small say the reported optimum is not a stationary point.
+
+The computation goes through the fit's \code{TMB} object, held in \code{object$obj}. If
+that component is absent -- it is dropped by anything that strips the fit down
+for storage -- the function stops with a message asking for a refit in the
+current session, rather than returning numbers it cannot stand behind.
+}
+\section{What does not work}{
+
+\code{sandwich::vcovHC()} is \strong{not} supported and will error with "cannot match
+dimension of model.matrix and estfun". It needs working residuals and a
+single design matrix whose columns line up one-for-one with the scores. This
+is a multi-part model with one design matrix \emph{per part}, so
+\code{model.matrix()} returns the \code{mu} block while \code{estfun()} spans every
+coefficient of every part, and the two cannot be made to line up. There is no
+sensible thing for a heteroskedasticity-consistent correction to do here.
+Use \code{vcov(object, type = "sandwich")}, which is the same estimator computed
+correctly, or \code{sandwich::vcovCL()} for clustered data.
+}
+
+\examples{
+set.seed(2024)
+n   <- 300
+x1  <- runif(n, -2, 2)
+x2  <- rbinom(n, 1, 0.5)
+mu  <- plogis(0.3 + 0.9 * x1 - 0.5 * x2)
+bt  <- log1p(-0.5) / log1p(-mu^2)
+y   <- gkwq_quantile(runif(n), alpha = 2, beta = bt)
+dat <- data.frame(y = y, x1 = x1, x2 = factor(x2))
+
+fit <- gkwqreg(y ~ x1 + x2 | x1, data = dat, tau = 0.5, family = "kw")
+
+S <- estfun.gkwqreg(fit)
+dim(S)                          # 300 x 5: one row per observation
+round(colSums(S), 6)            # all zero to 1e-4: a stationary point
+
+## -- the sandwich, assembled by hand -------------------------------------
+B <- bread.gkwqreg(fit)                       # n * H^{-1}
+Vs <- B \%*\% crossprod(S) \%*\% B / nobs(fit)^2
+all.equal(Vs, vcov(fit, type = "sandwich"), check.attributes = FALSE)
+## TRUE.  vcov(type = "sandwich") is exactly H^{-1} (sum s_i s_i') H^{-1},
+## and is also what sandwich::sandwich() returns for this class.
+
+## -- the scores carry the clustering information -------------------------
+grp <- rep(1:30, each = 10)
+M   <- crossprod(rowsum(S, grp))              # clustered meat
+Vcl <- (B \%*\% M \%*\% B) / nobs(fit)^2
+round(sqrt(diag(Vcl)), 4)
+## The same construction sandwich::vcovCL() performs; shown here so the
+## estimator is legible without taking a dependency on that package.
+}
+\seealso{
+\code{\link[=bread.gkwqreg]{bread.gkwqreg()}} for the other half of the sandwich,
+\code{\link[=vcov.gkwqreg]{vcov.gkwqreg()}} for the assembled estimator.
 }

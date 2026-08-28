@@ -151,23 +151,25 @@ test_that("lrtest() is anova() under the name lmtest users expect", {
   expect_equal(lrtest(a, b), anova(a, b))
 })
 
-test_that("profile intervals bracket the estimate, or report that they cannot", {
+test_that("profile intervals are finite and bracket the estimate", {
+  ## This used to return NA for every coefficient. TMB::tmbprofile() hands back
+  ## a frame whose columns are named "value" and NA, with the PARAMETER grid
+  ## under "value"; TMB's own confint method reads them the other way round.
+  ## The interval is now computed here, and the earlier version of this test was
+  ## permissive enough to pass while the feature was entirely broken.
   skip_on_cran()
-  d <- sim_kw(n = 200)
+  d <- sim_kw(n = 250)
   f <- gkwqreg(y ~ x, data = d, tau = 0.5, family = "kw")
-  ci <- suppressWarnings(confint(f, parm = "mu:x", method = "profile"))
-  expect_equal(dim(ci), c(1L, 2L))
-  if (all(is.finite(ci))) {
-    expect_lt(ci[1, 1], coef(f)[["mu:x"]])
-    expect_gt(ci[1, 2], coef(f)[["mu:x"]])
-    ## A profile interval should be in the same ballpark as the Wald one.
-    w <- confint(f, parm = "mu:x", method = "wald")
-    expect_lt(abs(diff(ci[1, ]) / diff(w[1, ]) - 1), 0.5)
-  } else {
-    ## Failure must be loud, not a silent NA.
-    expect_warning(confint(f, parm = "mu:x", method = "profile"),
-                   "cut-off")
-  }
+
+  ci <- confint(f, method = "profile")
+  expect_equal(dim(ci), c(length(coef(f)), 2L))
+  expect_true(all(is.finite(ci)))                       # not NA -- the whole point
+  expect_true(all(ci[, 1] < coef(f) & coef(f) < ci[, 2]))
+
+  ## For a well-behaved model the profile and Wald intervals should agree
+  ## closely; a large gap would mean one of them is wrong.
+  w <- confint(f, method = "wald")
+  expect_true(all(abs((ci[, 2] - ci[, 1]) / (w[, 2] - w[, 1]) - 1) < 0.25))
 })
 
 test_that("summary() still works when the response was not retained", {
@@ -180,4 +182,56 @@ test_that("summary() still works when the response was not retained", {
   expect_true(is.na(s$coverage))
   expect_output(print(s), "unavailable")
   expect_error(residuals(f), "refit with y = TRUE")
+})
+
+test_that("predict() with a factor in newdata is silent and respects levels", {
+  ## model.frame was being handed the levels for EVERY part, so it warned
+  ## "variable 'g' is not a factor" for parts that do not use g -- noise on
+  ## essentially every predict(newdata=) call with a factor in the model.
+  d <- sim_kw(n = 200)
+  d$g <- factor(rep(c("a", "b"), length.out = 200))
+  f <- gkwqreg(y ~ x + g | x, data = d, tau = 0.5, family = "kw")
+
+  nd <- data.frame(x = c(-1, 0, 1),
+                   g = factor("a", levels = c("a", "b")))
+  expect_silent(p <- predict(f, newdata = nd))
+  expect_length(p, 3L)
+  expect_true(all(p > 0 & p < 1))
+
+  ## Levels must still be enforced: the two groups differ, and an unseen level
+  ## is still an error rather than a silent recode.
+  pa <- predict(f, newdata = data.frame(x = 0, g = factor("a", levels = c("a", "b"))))
+  pb <- predict(f, newdata = data.frame(x = 0, g = factor("b", levels = c("a", "b"))))
+  expect_false(isTRUE(all.equal(pa, pb)))
+  expect_error(predict(f, newdata = data.frame(x = 0, g = factor("z"))))
+})
+
+test_that("the documented sandwich integration is exactly what works", {
+  skip_if_not_installed("sandwich")
+  d <- sim_kw(n = 200)
+  f <- gkwqreg(y ~ x, data = d, tau = 0.5, family = "kw")
+
+  ## sandwich::sandwich() must reproduce vcov(type = "sandwich") exactly.
+  expect_equal(sandwich::sandwich(f), vcov(f, type = "sandwich"),
+               ignore_attr = TRUE, tolerance = 1e-8)
+  expect_true(is.matrix(sandwich::vcovCL(f, cluster = seq_len(nobs(f)))))
+
+  ## vcovHC is documented as NOT working; pin that so the claim stays true.
+  expect_error(sandwich::vcovHC(f), "model.matrix|estfun")
+})
+
+test_that("deviance residuals use a genuine supremum, not a relocation", {
+  ## The reference must be sup_m l_i(m), not l_i(y_i). The density is generally
+  ## maximised at some m != y, so relocating the quantile onto the observation
+  ## can give a "saturated" value BELOW the fitted one, which the square root
+  ## then floors to zero. That silently zeroed 93 of 400 residuals.
+  d <- sim_kw(n = 400)
+  f <- gkwqreg(y ~ x, data = d, tau = 0.5, family = "kw")
+  r <- residuals(f, type = "deviance")
+
+  expect_length(r, 400L)
+  expect_true(all(is.finite(r)))
+  expect_equal(sum(r == 0), 0L)                       # nothing floored
+  ## Sign must track which side of the fitted quantile the observation is on.
+  expect_true(all(sign(r) == sign(f$y - fitted(f))))
 })

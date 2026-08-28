@@ -9,5 +9,15 @@
     registerS3method("bread", "gkwqreg", bread.gkwqreg,
                      envir = asNamespace("sandwich"))
   }
+  ## lmtest exports its own lrtest() generic, which masks ours whenever lmtest
+  ## is attached after this package. Its default method would then run a naive
+  ## likelihood-ratio test on two gkwqreg fits -- including across different
+  ## quantile levels or anchors, where the test is meaningless and
+  ## anova.gkwqreg() deliberately refuses. Registering our method against their
+  ## generic makes the guard hold whichever lrtest() the user reaches.
+  if (requireNamespace("lmtest", quietly = TRUE)) {
+    registerS3method("lrtest", "gkwqreg", lrtest.gkwqreg,
+                     envir = asNamespace("lmtest"))
+  }
   invisible()
 }

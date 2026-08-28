@@ -2,26 +2,176 @@
 % Please edit documentation in R/gkwqreg-process.R
 \name{quantile_process}
 \alias{quantile_process}
-\title{The quantile process}
+\title{The estimated quantile process}
 \usage{
 quantile_process(object, taus = seq(0.05, 0.95, by = 0.05), level = 0.95, ...)
 }
 \arguments{
-\item{object}{A \code{"gkwqreg"} fit whose call is reused, or a \code{"gkwqregs"}
-container to harvest.}
+\item{object}{Either a \code{"gkwqreg"} fit, whose stored call is re-evaluated with
+\code{tau} replaced by \code{taus}, or a \code{"gkwqregs"} container of fits that have
+already been computed and are simply harvested.}
 
-\item{taus}{Grid of quantile levels.}
+\item{taus}{Increasing grid of quantile levels in \eqn{(0,1)}{(0,1)}, used only
+when \code{object} is a single fit. \strong{Silently ignored when \code{object} is a
+\code{"gkwqregs"} container}, whose levels are already fixed by its fits.}
 
-\item{level}{Confidence level for the bands.}
+\item{level}{Confidence level for the pointwise bands, \code{0.95} by default.}
 
-\item{...}{Passed to \code{\link[=gkwqreg]{gkwqreg()}}.}
+\item{...}{Additional arguments merged into the re-evaluated call, hence passed
+to \code{\link[=gkwqreg]{gkwqreg()}}; \code{family}, \code{anchor} or \code{control} may be overridden here.
+Ignored when \code{object} is a container.}
 }
 \value{
-An object of class \code{"gkwq_process"}.
+An object of class \code{"gkwq_process"}, a list with components
+\describe{
+\item{\code{taus}}{Numeric vector of the levels, increasing.}
+\item{\code{coef}}{Coefficient matrix, one row per model coefficient and one
+column per level. Rows are named \code{"part:term"} (for example \code{"mu:x"},
+\code{"alpha:(Intercept)"}); columns are named by level.}
+\item{\code{se}}{Standard errors, same shape and dimnames as \code{coef}.}
+\item{\code{lower}, \code{upper}}{Pointwise Wald band limits, \code{coef} plus or minus
+\code{qnorm(1 - (1 - level) / 2)} standard errors.}
+\item{\code{parts}}{Character vector aligned with the rows of \code{coef}, naming the
+formula part each coefficient belongs to; this is what the plot method's
+\code{parts} argument selects on.}
+\item{\code{level}}{The confidence level used for the bands.}
+\item{\code{family}, \code{anchor}}{Family and anchor, common to every fit.}
+\item{\code{fits}}{The list of underlying \code{"gkwqreg"} fits, so that any per-level
+quantity (log-likelihood, check loss, residuals) remains available.}
+\item{\code{call}}{The matched call.}
+}
+A \code{print} method reports the family, anchor, level range and the rounded
+coefficient matrix.
 }
 \description{
-Fits the model over a grid of quantile levels and collects the coefficient
-paths. The plot is deliberately in the idiom of \code{quantreg}'s
-\code{plot.summary.rqs}, because that picture is the literature's standard output
-and readers should recognise it at once.
+Fits the model independently at each level of a grid of quantile levels and
+collects the resulting coefficient paths
+\eqn{\hat{\beta}_j(\tau)}{betahat_j(tau)} together with pointwise confidence
+bands. The companion \link[=plot.gkwq_process]{plot method} draws them in the visual
+idiom of \code{quantreg}'s \code{plot.summary.rqs}, because that picture is the
+literature's standard summary of a quantile process and readers should
+recognise it on sight.
+}
+\details{
+Each level is a separate maximum-likelihood problem with its own likelihood and
+its own parameter vector, exactly as \code{\link[=gkwqreg]{gkwqreg()}} produces when given a vector
+\code{tau}. The process object collects those separate answers side by side; it does
+not estimate them jointly, and it imposes no smoothness or monotonicity across
+\eqn{\tau}{tau}.
+
+The bands are pointwise Wald intervals computed level by level,
+\eqn{\hat{\beta}_j(\tau) \pm z_{1 - (1 - \texttt{level})/2}\,
+\mathrm{se}\{\hat{\beta}_j(\tau)\}}{betahat_j(tau) +/- z * se(betahat_j(tau))},
+from each fit's own observed information. Three consequences follow and none of
+them should be glossed over when the picture is presented. The bands are
+pointwise in \eqn{\tau}{tau} and not simultaneous, so a band that excludes zero
+at one level out of the nineteen in the default grid is not evidence at the
+nominal level for the process as a whole. They ignore the dependence between levels, which is substantial
+because every fit uses the same rows. And they are symmetric on the coefficient
+scale, which is the scale of the linear predictor, not of the quantile; use
+\code{\link[=marginal_effects]{marginal_effects()}} for statements about the response.
+
+When \code{object} is a single fit the call is rebuilt and evaluated in the caller's
+frame, so the data referred to by that call must still be visible from where
+\code{quantile_process()} is invoked. Passing a \code{"gkwqregs"} container avoids the
+issue entirely and refits nothing.
+}
+\section{A non-flat coefficient path is not evidence of tail heterogeneity}{
+
+This is the single most consequential misreading of the picture this function
+produces, and under the present parametrization it is a trap rather than a
+subtlety.
+
+In check-function quantile regression the coefficient path is flat exactly when
+the covariate shifts the whole conditional distribution without changing its
+shape, so a sloping path is read, correctly, as tail heterogeneity. \strong{That
+reading does not carry over here.} The quantity plotted is the slope of
+\eqn{g(\mu_\tau)}{g(mu_tau)}, the link-transformed conditional
+\eqn{\tau}{tau}-quantile, and for a fixed conditional distribution the map from
+a covariate to \eqn{g}{g} of its \eqn{\tau}{tau}-quantile is a different
+function at each \eqn{\tau}{tau}. The path is therefore \emph{generically}
+\eqn{\tau}{tau}-varying even when the data-generating process has no tail
+heterogeneity whatsoever. It is a property of the link and the reparametrization,
+not a finding about the data.
+
+The effect is large, not a second-order curiosity. Simulating from a correctly
+specified \code{kw} model with a \strong{constant} \eqn{\alpha}{alpha}, one covariate, a
+single index driving the entire conditional distribution and a true median slope
+of \code{1.1} (\eqn{n = 20000}{n = 20000}), the fitted \code{mu:x} coefficient runs
+
+\tabular{lrrrrr}{
+\code{tau}  \tab 0.10  \tab 0.25  \tab 0.50  \tab 0.75  \tab 0.90 \cr
+\code{mu:x} \tab 0.748 \tab 0.883 \tab 1.100 \tab 1.397 \tab 1.744
+}
+
+The median is recovered exactly. The other four levels are not the same number
+and were never supposed to be: a path rising by a factor of 2.3 from the first
+decile to the ninth is what \emph{no} tail heterogeneity looks like on this scale.
+A reader shown only the picture would report that the covariate "matters more in
+the upper tail", and would be describing the parametrization.
+
+What to do instead. The null hypothesis to compare against is not a horizontal
+line but the path implied by a homogeneous model, and there are two honest ways
+to obtain it. Simulate from the fitted homogeneous model with
+\code{\link[=simulate.gkwqreg]{simulate.gkwqreg()}}, refit the process on the simulated data, and use that path
+as the reference; the \code{reference} argument of \code{\link[=plot.gkwq_process]{plot.gkwq_process()}} takes a
+value per coefficient for exactly this purpose. Or, better, test the question
+directly inside the model: give the shape parameter its own regression
+(\code{y ~ x | x} rather than \code{y ~ x}) and compare the two nested fits at a single
+level with \code{\link[=lrtest]{lrtest()}}. Tail heterogeneity in this parametrization means the
+shape parameters depend on the covariates, and that is a hypothesis with a
+likelihood-ratio test attached, not something to be read off a slope.
+
+The shape coefficients' own paths are the useful diagnostic in the plot: under a
+homogeneous data-generating process they are flat, because a constant shape
+parameter is estimated as the same constant at every level.
+}
+
+\examples{
+## A correctly specified kw model with a CONSTANT shape parameter: by
+## construction there is no tail heterogeneity of any kind here.
+set.seed(6)
+n <- 1000
+x <- runif(n, -2, 2)
+mu <- plogis(0.4 + 1.1 * x)                    # true median, logit slope 1.1
+y <- gkwdist::rkw(n, alpha = 2, beta = log1p(-0.5) / log1p(-mu^2))
+d <- data.frame(y = y, x = x)
+
+fit <- gkwqreg(y ~ x, data = d, tau = 0.5, family = "kw")
+qp <- quantile_process(fit, taus = c(0.1, 0.25, 0.5, 0.75, 0.9))
+round(qp$coef, 3)
+#>                     0.10   0.25  0.50  0.75  0.90
+#> mu:(Intercept)    -1.180 -0.409 0.436 1.342 2.272
+#> mu:x               0.750  0.891 1.116 1.425 1.789
+#> alpha:(Intercept)  0.664  0.680 0.688 0.685 0.675
+
+## Read the two informative rows against each other.
+##   mu:x rises from 0.75 to 1.79 and recovers 1.1 at the median. That rise
+##   is NOT tail heterogeneity: the simulation has none. It is what a single
+##   fixed conditional distribution looks like when read at five levels
+##   through a logit link.
+##   alpha:(Intercept) is flat to within 0.025, correctly reporting that the
+##   shape parameter is the same constant at every level. THAT is the row
+##   that carries the heterogeneity question.
+
+## Test the question directly instead of eyeballing the slope of mu:x.
+m0 <- gkwqreg(y ~ x, data = d, tau = 0.5, family = "kw")       # alpha constant
+m1 <- gkwqreg(y ~ x | x, data = d, tau = 0.5, family = "kw")   # alpha ~ x
+lrtest(m0, m1)
+#>      Df logLik     AIC  Chisq Chi Df Pr(>Chisq)
+#> [1,]  3 521.43 -1036.9
+#> [2,]  4 521.43 -1034.9 0.0018      1     0.9664
+## No evidence at all that the shape depends on x -- which is the right
+## answer, and the one the sloping mu:x path would have contradicted.
+
+## Harvesting an existing container refits nothing and ignores `taus`.
+fits <- gkwqreg(y ~ x, data = d, tau = c(0.25, 0.5, 0.75), family = "kw")
+quantile_process(fits, taus = seq(0.1, 0.9, by = 0.1))$taus
+#> 0.25 0.50 0.75
+}
+\seealso{
+\code{\link[=plot.gkwq_process]{plot.gkwq_process()}} for the picture; \code{\link[=check_crossing]{check_crossing()}} and
+\code{\link[=rearrange]{rearrange()}} for the monotonicity of independently fitted levels;
+\code{\link[=marginal_effects]{marginal_effects()}} for effects on the scale of the response; \code{\link[=lrtest]{lrtest()}} for
+testing shape heterogeneity properly.
 }

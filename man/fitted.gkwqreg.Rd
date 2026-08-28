@@ -7,17 +7,100 @@
 \method{fitted}{gkwqreg}(object, type = c("quantile", "mean", "parameter"), ...)
 }
 \arguments{
-\item{object}{A \code{"gkwqreg"} fit.}
+\item{object}{A \code{"gkwqreg"} fit, as returned by \code{\link[=gkwqreg]{gkwqreg()}}.}
 
-\item{type}{\code{"quantile"} (the default) gives \code{Q(tau | x_i)}; \code{"mean"} gives
-\code{E[Y | x_i]} by quadrature; \code{"parameter"} gives the reconstructed
-five-parameter vector per observation.}
+\item{type}{Which fitted quantity to return; see the table below. Partial
+matching applies.}
 
-\item{...}{Unused.}
+\item{...}{Currently unused; present for consistency with the generic.}
 }
 \value{
-A numeric vector, or a data frame for \code{type = "parameter"}.
+For \code{type = "quantile"} and \code{type = "mean"}, a numeric vector of
+length \code{nobs(object)}, aligned with the rows retained after \code{na.action}.
+For \code{type = "parameter"}, a data frame with \code{nobs(object)} rows and the
+five columns \code{alpha}, \code{beta}, \code{gamma}, \code{delta}, \code{lambda} in \code{gkwdist}
+order.
 }
 \description{
-\strong{Returns the fitted conditional \code{tau}-quantile, not the conditional mean.}
+\strong{Returns the fitted conditional \eqn{\tau}-quantile, not the conditional
+mean.} This is the single most consequential difference between a
+\code{"gkwqreg"} object and the mean-parametrized \code{gkwreg} fits it otherwise
+resembles, and the class deliberately does not inherit from that one so that
+the confusion cannot happen by silent dispatch.
+}
+\details{
+The default value is
+\deqn{\hat{y}_i \;=\; \widehat{Q}(\tau \mid x_i) \;=\; \hat\mu_\tau(x_i),}
+the fitted \eqn{\tau}-quantile for observation \eqn{i}, taken straight from
+the quantile part of the linear predictor through its inverse link. It is not
+a prediction of \eqn{y_i} in the least-squares sense and should not be
+averaged, differenced against \eqn{y_i}, or fed to a residual routine that
+assumes a mean. Use \code{\link[=residuals.gkwqreg]{residuals.gkwqreg()}} for residuals defined on the right
+scale.
+
+The operational meaning is a coverage statement: a fraction \eqn{\tau} of the
+observations should fall at or below their own fitted value. That check is
+one line and worth running, and \code{summary()} reports it as the empirical
+coverage. A conditional mean satisfies no such property, which is what the
+examples make concrete.
+}
+\section{Values of \code{type}}{
+\tabular{lll}{
+   \code{type} \tab What is returned \tab Shape \cr
+   \code{"quantile"} (default) \tab the fitted conditional tau-quantile \tab numeric vector of length \code{nobs(object)} \cr
+   \code{"mean"} \tab the conditional mean by 64-node Gauss-Legendre quadrature of the fitted quantile function \tab numeric vector of length \code{nobs(object)} \cr
+   \code{"parameter"} \tab the reconstructed distribution parameters, one row per observation \tab data frame with columns \code{alpha}, \code{beta}, \code{gamma}, \code{delta}, \code{lambda} \cr
+}
+
+
+\code{type = "mean"} exists so that a quantile fit can be placed beside a
+mean-parametrized one, and so that a mean-based diagnostic borrowed from
+elsewhere can be reproduced deliberately rather than by accident. It is never
+the default, and it is never what the model was estimated to get right.
+
+\code{type = "parameter"} returns the fitted conditional law itself. For each row
+the anchored parameter has been solved so that the distribution has
+\eqn{\hat\mu_\tau(x_i)} as its exact \eqn{\tau}-quantile, so these values can
+be handed directly to the \code{gkwdist} density, distribution and random-number
+functions.
+}
+
+\examples{
+set.seed(2024)
+n   <- 300
+x1  <- runif(n, -2, 2)
+x2  <- rbinom(n, 1, 0.5)
+mu  <- plogis(0.3 + 0.9 * x1 - 0.5 * x2)
+bt  <- log1p(-0.5) / log1p(-mu^2)
+y   <- gkwq_quantile(runif(n), alpha = 2, beta = bt)
+dat <- data.frame(y = y, x1 = x1, x2 = factor(x2))
+
+## Fit the ninth decile, where quantile and mean are far apart.
+fit90 <- gkwqreg(y ~ x1 + x2 | x1, data = dat, tau = 0.9, family = "kw")
+
+## -- what fitted() actually promises -------------------------------------
+mean(dat$y <= fitted(fit90))                  # 0.8900, target tau = 0.9
+mean(dat$y <= fitted(fit90, type = "mean"))   # 0.5067
+## Ninety per cent of the sample lies below its own fitted value, as a 0.9
+## quantile must. The conditional mean covers only about half. Reading
+## fitted() as a mean would misstate the estimand by four deciles here.
+
+mean(fitted(fit90))                # 0.6991
+mean(fitted(fit90, "mean"))        # 0.4736
+
+## -- the fitted conditional distribution ---------------------------------
+pv <- fitted(fit90, type = "parameter")
+head(pv, 3)
+## Each row is a Kumaraswamy law (gamma = 1, delta = 0, lambda = 1) whose
+## 0.9-quantile is exactly the corresponding fitted value:
+all.equal(gkwq_quantile(0.9, pv$alpha, pv$beta, pv$gamma, pv$delta,
+                        pv$lambda),
+          fitted(fit90))
+## TRUE. beta varies across rows because it is the anchor: it is recomputed
+## from the fitted quantile rather than estimated.
+}
+\seealso{
+\code{\link[=predict.gkwqreg]{predict.gkwqreg()}} for the same quantities at new covariate values
+and for further quantile levels, \code{\link[=residuals.gkwqreg]{residuals.gkwqreg()}} for quantile
+residuals, \code{\link[=gkwqreg]{gkwqreg()}} for the model.
 }

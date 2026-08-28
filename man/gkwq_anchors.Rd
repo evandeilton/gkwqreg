@@ -2,21 +2,166 @@
 % Please edit documentation in R/gkwqreg-families.R
 \name{gkwq_anchors}
 \alias{gkwq_anchors}
-\title{Available anchors for a family}
+\title{Admissible anchors for a family}
 \usage{
 gkwq_anchors(family = "kw")
 }
 \arguments{
-\item{family}{One of \code{"kw"}, \code{"ekw"}, \code{"kkw"}, \code{"bkw"}, \code{"gkw"}, \code{"mc"},
-\code{"beta"}.}
+\item{family}{Character, one of \code{"kw"}, \code{"ekw"}, \code{"kkw"}, \code{"bkw"}, \code{"gkw"},
+\code{"mc"}, \code{"beta"}. Partial matching is applied. An unrecognised name is an
+error.}
 }
 \value{
-A character vector of admissible anchors, the first being the default.
+A character vector of the anchor names admissible for \code{family},
+ordered with the family default first. Supplying any other value as the
+\code{anchor} argument of \code{\link[=gkwqreg]{gkwqreg()}} or \code{\link[=gkwq_parts]{gkwq_parts()}} raises an error that
+names these.
 }
 \description{
-Available anchors for a family
+The \emph{anchor} is the parameter eliminated in favour of the conditional
+quantile when a family is reparametrized at a level \eqn{\tau} fixed in
+advance. \code{gkwq_anchors()} reports which of a family's parameters may play
+that role, the first being the default that \code{\link[=gkwqreg]{gkwqreg()}} uses when
+\code{anchor = NULL}.
 }
+\details{
+Fix a level \eqn{\tau \in (0,1)} and let \eqn{\mu} denote the target
+conditional quantile. Anchoring means solving
+
+\deqn{Q(\tau; \alpha, \beta, \gamma, \delta, \lambda) = \mu}
+
+for one parameter and substituting the solution back into the likelihood.
+What remains is a distribution indexed by \eqn{\mu} together with the
+parameters left free, in which \eqn{\mu} \emph{is} the conditional
+\eqn{\tau}-quantile and can therefore be modelled directly through a link
+function. The anchored parameter is no longer free and takes no formula
+part; see \code{\link[=gkwq_parts]{gkwq_parts()}}.
+
+A parameter is admissible as an anchor only when that equation has a unique
+solution for it at every \eqn{(\mu, \tau)} in \eqn{(0,1)^2} and for every
+admissible value of the parameters left free. Three of the five parameters
+admit a closed-form solve. Writing \eqn{z_\tau} for
+\code{qbeta(tau, gamma, delta + 1)},
+
+\deqn{\beta = \frac{\log(1 - z_\tau^{1/\lambda})}{\log(1 - \mu^\alpha)},
+  \qquad
+  \alpha = \frac{\log\{1 - (1 - z_\tau^{1/\lambda})^{1/\beta}\}}{\log \mu},
+  \qquad
+  \lambda = \frac{\log z_\tau}{\log\{1 - (1 - \mu^\alpha)^\beta\}}.}
+
+Each is a ratio of two logarithms of quantities lying in \eqn{(0,1)} and is
+consequently strictly positive and finite for every \eqn{\mu} and \eqn{\tau}
+in \eqn{(0,1)}. No box constraint on the anchored parameter is ever needed,
+which is what makes an unconstrained optimizer safe for this model.
+}
+\section{Which families admit which anchors}{
+\tabular{lll}{
+   family \tab admissible anchors (default first) \tab how the anchor is obtained \cr
+   \code{"kw"} \tab \code{"beta"}, \code{"alpha"} \tab closed form \cr
+   \code{"ekw"} \tab \code{"beta"}, \code{"alpha"}, \code{"lambda"} \tab closed form \cr
+   \code{"kkw"} \tab \code{"beta"}, \code{"alpha"}, \code{"lambda"} \tab closed form \cr
+   \code{"bkw"} \tab \code{"beta"}, \code{"alpha"} \tab closed form \cr
+   \code{"gkw"} \tab \code{"beta"}, \code{"alpha"}, \code{"lambda"} \tab closed form \cr
+   \code{"mc"} \tab \code{"lambda"} \tab closed form, \eqn{\lambda = \log z_\tau / \log \mu} \cr
+   \code{"beta"} \tab \code{"gamma"} \tab one-dimensional root find \cr
+}
+
+
+A parameter that a family holds fixed as a structural constant cannot be an
+anchor, since it is not free to be solved for, and that alone accounts for
+most of the table. The \code{"mc"} family fixes \eqn{\alpha = \beta = 1}, so
+neither is available and the \eqn{\lambda}-solve is forced; with those two
+substitutions the general expression above collapses to the elementary form
+\eqn{\lambda = \log z_\tau / \log \mu}. The \code{"beta"} family fixes
+\eqn{\alpha = \beta = \lambda = 1}, leaving only \eqn{\gamma} and
+\eqn{\delta} as candidates.
+}
+
+\section{Why gamma is admissible and delta never is}{
+
+In the \code{"beta"} family both free parameters enter the quantile solely
+through \eqn{z_\tau}, so \eqn{Q(\tau) = \mu} reduces to
+
+\deqn{I_\mu(\gamma, \delta + 1) = \tau,}
+
+where \eqn{I} is the regularized incomplete beta function, that is \code{pbeta}.
+There is no closed-form inverse, but admissibility is a question of existence
+and uniqueness rather than of closed form.
+
+Read as an equation in \eqn{\gamma}, the left-hand side is continuous and
+strictly decreasing, tending to \eqn{1} as \eqn{\gamma \to 0} and to \eqn{0}
+as \eqn{\gamma \to \infty}. It therefore sweeps the whole of \eqn{(0,1)} and
+a root exists, uniquely, for every \eqn{\tau \in (0,1)} and every \eqn{\mu}.
+A bracketed one-dimensional root find is all that is required, and
+\eqn{\gamma} is admissible.
+
+Read instead as an equation in \eqn{\delta}, the left-hand side is
+increasing, but \eqn{\delta} is bounded below by zero and
+\eqn{I_\mu(\gamma, 1) = \mu^\gamma}. Over the admissible range
+\eqn{\delta \in [0, \infty)} the left-hand side spans only
+\eqn{[\mu^\gamma, 1)}. A \eqn{\delta}-solve therefore exists only when
+\eqn{\tau > \mu^\gamma}, a condition that nothing in the data or the model
+guarantees: a low level combined with a large fitted quantile simply breaks
+it. This is why \eqn{\gamma} is the only anchor the \code{"beta"} family admits,
+and why \eqn{\delta} is an anchor in no family at all -- wherever it is free
+it is bounded below by zero and enters only through \eqn{z_\tau}, so the same
+range restriction recurs.
+}
+
+\section{The anchor is a modelling choice}{
+
+When every free parameter is regressed on the same covariates as \eqn{\mu},
+the choice of anchor leaves the likelihood unchanged and is a genuine
+reparametrization. It ceases to be innocuous as soon as \eqn{\mu} varies with
+covariates while a free parameter is held constant, because the anchor then
+decides which parameter absorbs that variation. Two anchors applied to the
+same data give non-nested models of equal dimension: compare them by AIC, BIC
+or \code{\link[=vuong_test]{vuong_test()}}, never by a likelihood-ratio test. See \code{\link[=gkwqreg]{gkwqreg()}} for the
+full discussion.
+}
+
 \examples{
-gkwq_anchors("gkw")
-gkwq_anchors("mc")
+## Every family, default anchor first.
+for (f in c("kw", "ekw", "kkw", "bkw", "gkw", "mc", "beta")) {
+  cat(sprintf("\%-5s \%s\n", f, paste(gkwq_anchors(f), collapse = ", ")))
+}
+## kw    beta, alpha
+## ekw   beta, alpha, lambda
+## kkw   beta, alpha, lambda
+## bkw   beta, alpha
+## gkw   beta, alpha, lambda
+## mc    lambda            <- alpha and beta are fixed at 1
+## beta  gamma             <- alpha, beta and lambda are fixed at 1
+
+## An inadmissible anchor is an error that names the admissible ones, so the
+## registry never has to be memorised.
+err <- try(gkwq_parts("mc", anchor = "beta"), silent = TRUE)
+cat(conditionMessage(attr(err, "condition")), "\n")
+## anchor 'beta' is not available for family 'mc'; choose one of 'lambda'.
+
+## The forced lambda-solve for "mc", in closed form. With alpha = beta = 1
+## the quantile is z_tau^(1/lambda), so lambda = log z_tau / log mu.
+tau <- 0.30; mu <- 0.60; g <- 2; d <- 1.5
+lam <- log(qbeta(tau, g, d + 1)) / log(mu)
+gkwq_quantile(tau, alpha = 1, beta = 1, gamma = g, delta = d, lambda = lam)
+## [1] 0.6
+## The tau-quantile is exactly the target mu: that is what anchoring buys.
+
+## Why gamma is admissible for the "beta" family. Solving
+## I_mu(gamma, delta + 1) = tau in gamma always has a root, because the left
+## side sweeps all of (0,1) as gamma ranges over (0, Inf):
+round(pbeta(0.4, c(0.01, 0.1, 0.5, 1, 2, 5, 20), 2), 4)
+## [1] 0.9968 0.9672 0.8222 0.6400 0.3520 0.0410 0.0000
+
+## Why delta is not. Over the admissible range delta >= 0 the same expression
+## spans only [mu^gamma, 1), so any tau below mu^gamma is unreachable:
+round(pbeta(0.4, 1.5, c(0, 1, 5, 50) + 1), 4)
+## [1] 0.2530 0.4807 0.9049 1.0000
+round(0.4^1.5, 4)
+## [1] 0.253    <- the floor, attained at delta = 0
+}
+\seealso{
+\code{\link[=gkwq_parts]{gkwq_parts()}} for the formula parts that follow from a choice of
+anchor; \code{\link[=gkwq_quantile]{gkwq_quantile()}} for the quantile function being solved;
+\code{\link[=gkwqreg]{gkwqreg()}} for fitting.
 }

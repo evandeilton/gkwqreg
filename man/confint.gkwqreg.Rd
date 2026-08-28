@@ -14,27 +14,121 @@
 )
 }
 \arguments{
-\item{object}{A \code{"gkwqreg"} fit.}
+\item{object}{A \code{"gkwqreg"} fit, as returned by \code{\link[=gkwqreg]{gkwqreg()}}.}
 
-\item{parm}{Coefficients to report; defaults to all.}
+\item{parm}{Coefficients to report, given either as a character vector of
+names from \code{names(coef(object))} -- which have the form \code{"part:term"}, as
+in \code{"mu:x1"} or \code{"alpha:(Intercept)"} -- or as integer positions into that
+vector. Defaults to every coefficient of every part.}
 
-\item{level}{Confidence level.}
+\item{level}{Confidence level, a single number in \verb{(0,1)}. The default,
+\code{0.95}, gives equal-tailed limits at the 2.5th and 97.5th percentiles.}
 
-\item{method}{\code{"wald"} from the covariance matrix, \code{"profile"} from the TMB
-objective one coefficient at a time, or \code{"boot"} percentile intervals.}
+\item{method}{How to construct the interval; see the table below. Partial
+matching applies.}
 
-\item{R}{Bootstrap replicates when \code{method = "boot"}.}
+\item{R}{Number of bootstrap replicates, used only when \code{method = "boot"}.
+The default of 200 is adequate for a percentile interval at the usual
+levels; raise it for tail levels or for publication.}
 
-\item{...}{Passed to \code{\link[=gkwq_boot]{gkwq_boot()}} when bootstrapping.}
+\item{...}{Passed to \code{\link[=gkwq_boot]{gkwq_boot()}} when \code{method = "boot"}, which is where
+\code{type} and \code{seed} are set. Ignored by the other methods.}
 }
 \value{
-A matrix of lower and upper limits.
+A numeric matrix with one row per entry of \code{parm} and two columns,
+the lower and upper limits. Row names are the coefficient names; column
+names are the percentages of the limits, for example \code{"2.5 \%"} and
+\code{"97.5 \%"}. Entries that could not be computed are \code{NA}.
 }
 \description{
-Confidence intervals for a quantile regression fit
+Computes confidence intervals for the coefficients of a \code{"gkwqreg"} fit by
+the Wald approximation, by inverting the profile likelihood, or by the
+bootstrap.
 }
 \details{
-The conditional quantile is not orthogonal to the remaining parameters in the
-Cox-Reid sense, so Wald intervals can be noticeably off in small samples.
-\code{"profile"} is the cheap remedy and costs one TMB profile per coefficient.
+The intervals are for coefficients on the \strong{link scale}: under the default
+logit link an interval for a \code{mu} coefficient is an interval for an effect on
+the log quantile odds. Exponentiating the limits gives an interval for the
+multiplicative effect on the quantile odds \eqn{\mu_\tau/(1-\mu_\tau)}, which
+is legitimate because the transformation is monotone. An interval for the
+effect on the quantile itself is a different object, since it involves the
+link derivative as well; use \code{\link[=marginal_effects]{marginal_effects()}} for that.
+}
+\section{The three methods}{
+\tabular{llll}{
+   \code{method} \tab Construction \tab Cost \tab Use when \cr
+   \code{"wald"} (default) \tab estimate plus or minus \code{z * se}, from the stored standard errors \tab free \tab the sample is large and the log-likelihood is close to quadratic \cr
+   \code{"profile"} \tab inversion of the \code{TMB} profile likelihood, one coefficient at a time \tab one profile per coefficient \tab the Wald approximation is suspect and the sample is small \cr
+   \code{"boot"} \tab percentile interval from \code{\link[=gkwq_boot]{gkwq_boot()}} \tab \code{R} refits \tab the family may be misspecified, or the profile does not resolve \cr
+}
+
+
+Wald intervals use \code{object$se}, the square roots of the diagonal of the
+stored observed-information inverse, and are therefore always symmetric about
+the estimate. This matters more here than in an ordinary generalized linear
+model: the conditional quantile is not orthogonal to the remaining parameters
+in the Cox-Reid sense, so the profile log-likelihood in a \code{mu} coefficient
+inherits curvature from the nuisance parameters and can be visibly
+asymmetric in small samples. Neither \code{"profile"} nor \code{"boot"} imposes
+symmetry.
+
+\code{"boot"} passes \code{...} through to \code{\link[=gkwq_boot]{gkwq_boot()}}, whose default resampling
+scheme is \code{type = "pairs"}. That default is the right one for interval
+construction: the appeal of parametric quantile regression is that it buys
+efficiency under a distributional assumption, and a parametric bootstrap that
+re-imposes the same assumption cannot say anything about whether it holds.
+Set \code{type = "parametric"} only when the family is not in question.
+
+\code{"profile"} is the most accurate of the three when it succeeds. It is
+not always able to interpolate the likelihood cut-off from the profile it
+obtains -- the profile may simply not extend far enough on one side. Limits
+that cannot be obtained come back as \code{NA} and the function warns, naming how
+many coefficients were affected, rather than reporting a silently wrong
+number. Fall back on \code{"wald"} or \code{"boot"} when that happens.
+}
+
+\examples{
+set.seed(2024)
+n   <- 300
+x1  <- runif(n, -2, 2)
+x2  <- rbinom(n, 1, 0.5)
+mu  <- plogis(0.3 + 0.9 * x1 - 0.5 * x2)
+bt  <- log1p(-0.5) / log1p(-mu^2)
+y   <- gkwq_quantile(runif(n), alpha = 2, beta = bt)
+dat <- data.frame(y = y, x1 = x1, x2 = factor(x2))
+
+fit <- gkwqreg(y ~ x1 + x2 | x1, data = dat, tau = 0.5, family = "kw")
+
+## -- Wald intervals for every coefficient of every part ------------------
+round(confint(fit), 4)
+## mu:x1 lies in (0.7660, 0.9496); the true value used to simulate was 0.9.
+
+## -- on the quantile-odds scale ------------------------------------------
+round(exp(confint(fit, parm = "mu:x1")), 4)
+## (2.1512, 2.5847): a one-unit rise in x1 multiplies the odds of the median
+## by between 2.15 and 2.58. The transformation is monotone, so the limits
+## carry over; the effect on the median itself is marginal_effects().
+
+## -- a narrower selection and a different level --------------------------
+round(confint(fit, parm = c("mu:x1", "mu:x21"), level = 0.9), 4)
+
+\donttest{
+## -- percentile bootstrap, resampling observations -----------------------
+round(confint(fit, parm = c("mu:x1", "mu:x21"), method = "boot",
+              R = 100, seed = 7), 4)
+##          2.5 \%  97.5 \%
+## mu:x1   0.7829  0.9529
+## mu:x21 -0.7060 -0.2651
+## For mu:x1 these sit almost on top of the Wald limits, as they should when
+## the family is correctly specified and n = 300. For the factor mu:x21 the
+## upper limit is visibly further out; with R = 100 a percentile limit is
+## itself an estimate, so raise R before reading much into a single
+## discrepancy of this size.
+}
+}
+\seealso{
+\code{\link[=vcov.gkwqreg]{vcov.gkwqreg()}} for the covariance matrices behind the Wald
+interval, \code{\link[=gkwq_boot]{gkwq_boot()}} for the bootstrap, \code{\link[=marginal_effects]{marginal_effects()}} for
+intervals on the scale of the response, \code{\link[=summary.gkwqreg]{summary.gkwqreg()}} for the
+accompanying coefficient table.
 }

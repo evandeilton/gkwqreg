@@ -20,8 +20,11 @@ Kumaraswamy families.
   `quantile_process()`, `vuong_test()`, `compare_families()`, `gkwq_boot()`,
   `simulate()`, `lrtest()`.
 * Wald, likelihood-ratio, profile, bootstrap and sandwich inference. `estfun()` and `bread()` are
-  registered when `sandwich` is installed, so `sandwich::vcovHC()` and
-  `lmtest::coeftest()` work directly.
+  registered when `sandwich` is installed, so `sandwich::sandwich()`,
+  `sandwich::vcovCL()` and `lmtest::coeftest()` work directly.
+  `sandwich::vcovHC()` is not supported: it needs working residuals and a single
+  design matrix aligned with the scores, which a multi-part model does not have.
+  Use `vcov(type = "sandwich")` instead.
 
 ## Numerical notes
 

@@ -10,12 +10,69 @@ lrtest(object, ...)
 \method{lrtest}{gkwqreg}(object, ...)
 }
 \arguments{
-\item{object, ...}{\code{"gkwqreg"} fits.}
+\item{object}{A \code{"gkwqreg"} fit.}
+
+\item{...}{One or more further \code{"gkwqreg"} fits, at the same quantile level,
+with the same anchor and the same number of observations.}
 }
 \value{
-A data frame of class \code{"anova.gkwqreg"}.
+A data frame of class \code{"anova.gkwqreg"}, exactly as returned by
+\code{\link[=anova.gkwqreg]{anova.gkwqreg()}}; see that help page for the columns and the printed
+layout.
 }
 \description{
-A thin wrapper on \code{\link[=anova.gkwqreg]{anova.gkwqreg()}} under the name \code{lmtest} users expect. The
-same guards apply: all fits must share the quantile level and the anchor.
+A thin wrapper on \code{\link[=anova.gkwqreg]{anova.gkwqreg()}}, offered under the name that users of
+\code{lmtest::lrtest()} will reach for first. Behaviour, guards and return value
+are identical: the fits are sorted by dimension, each is tested against the
+one above it by the statistic
+\eqn{LR = 2\{\ell_1(\hat\theta_1) - \ell_0(\hat\theta_0)\}} referred to a
+chi-squared distribution on the difference in dimension, and comparisons
+across quantile levels or across anchors are refused.
+}
+\details{
+\code{lrtest()} is a generic defined by this package, so that \code{gkwqreg} need not
+depend on \code{lmtest} merely to offer a familiar name. It is a \emph{different}
+generic from \code{lmtest::lrtest()}, and the two mask one another when both
+packages are attached: whichever was attached last wins.
+
+The distinction matters, because the two behave differently on these
+objects. If \code{lmtest} is attached after \code{gkwqreg}, a bare call to \code{lrtest()}
+reaches \code{lmtest}'s default method, which knows nothing about quantile levels
+or anchors. Handed two fits at different levels it will happily compute a
+difference of log-likelihoods and report a significant result -- the very
+number that \code{\link[=anova.gkwqreg]{anova.gkwqreg()}} refuses to produce, and for the reasons given
+there. Call \code{gkwqreg::lrtest()} or \code{\link[=anova.gkwqreg]{anova.gkwqreg()}} explicitly if there is any doubt
+about which generic is in scope; both carry the guards.
+}
+\examples{
+## Data with a genuine third shape parameter: lambda = 4, so "kw" is too
+## small and "ekw" is right.
+set.seed(2026)
+n  <- 500
+x  <- runif(n, -2, 2)
+mu <- plogis(0.3 + 1.2 * x)
+b  <- log1p(-0.5^(1 / 4)) / log1p(-mu^2)
+y  <- gkwdist::rekw(n, alpha = 2, beta = b, lambda = 4)
+d  <- data.frame(y = y, x = x)
+
+m_kw  <- gkwqreg(y ~ x, data = d, tau = 0.5, family = "kw")
+m_ekw <- gkwqreg(y ~ x, data = d, tau = 0.5, family = "ekw")
+
+lrtest(m_kw, m_ekw)
+##      Df logLik     AIC   Chisq Chi Df Pr(>Chisq)
+## [1,]  3 482.58 -959.16
+## [2,]  4 496.90 -985.80  28.641      1  8.713e-08
+
+## Identical to anova(), which is what it calls.
+identical(lrtest(m_kw, m_ekw), anova(m_kw, m_ekw))
+## [1] TRUE
+
+## The guards travel with it: a cross-level comparison is refused here too.
+m_tau9 <- gkwqreg(y ~ x, data = d, tau = 0.9, family = "kw")
+try(lrtest(m_kw, m_tau9))
+
+}
+\seealso{
+\code{\link[=anova.gkwqreg]{anova.gkwqreg()}} for the full account of the test, the nesting of
+the families and the two refusals; \code{\link[=vuong_test]{vuong_test()}} for the non-nested case.
 }

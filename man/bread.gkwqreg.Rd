@@ -2,21 +2,59 @@
 % Please edit documentation in R/gkwqreg-methods.R
 \name{bread.gkwqreg}
 \alias{bread.gkwqreg}
-\title{Bread matrix for sandwich covariance}
+\title{Bread matrix for the sandwich covariance}
 \usage{
 bread.gkwqreg(x, ...)
 }
 \arguments{
-\item{x}{A \code{"gkwqreg"} fit.}
+\item{x}{A \code{"gkwqreg"} fit that carries an observed information matrix, that
+is, one fitted with \code{gkwq_control(hessian = TRUE)} (the default). Otherwise
+the function errors.}
 
-\item{...}{Unused.}
+\item{...}{Currently unused.}
 }
 \value{
-A \code{p} by \code{p} matrix.
+A symmetric numeric matrix of dimension \code{p} by \code{p}, where
+\code{p = length(coef(x))}, with dimnames inherited from \code{vcov(x)}.
 }
 \description{
-The inverse observed information scaled by the sample size, as
-\code{sandwich::sandwich()} expects. Together with \code{\link[=estfun.gkwqreg]{estfun.gkwqreg()}} this makes
-\code{sandwich::vcovHC()}, \code{sandwich::vcovCL()} and \code{lmtest::coeftest()} work on
-\code{"gkwqreg"} fits without any further glue.
+Returns the inverse observed information scaled by the sample size, in the
+normalization the \pkg{sandwich} package expects. Together with
+\code{\link[=estfun.gkwqreg]{estfun.gkwqreg()}} this makes \code{sandwich::sandwich()}, \code{sandwich::vcovCL()} and
+\code{lmtest::coeftest()} work on \code{"gkwqreg"} fits without any further glue.
+}
+\details{
+The value is
+\deqn{\widehat{\mathrm{bread}} \;=\; n \, \hat{H}^{-1}
+  \;=\; \left(\frac{1}{n}\hat{H}\right)^{-1},}
+the inverse of the \emph{average} observed information, which is the quantity that
+converges to a fixed matrix as \eqn{n} grows. That normalization is what lets
+\pkg{sandwich} assemble
+\eqn{\widehat{\mathrm{bread}} \, \widehat{\mathrm{meat}} \,
+\widehat{\mathrm{bread}} / n} and recover the same estimator as
+\code{vcov(object, type = "sandwich")}.
+
+\code{sandwich::vcovHC()} is not supported for this class; see
+\code{\link[=estfun.gkwqreg]{estfun.gkwqreg()}} for why.
+}
+\examples{
+set.seed(2024)
+n   <- 300
+x1  <- runif(n, -2, 2)
+mu  <- plogis(0.3 + 0.9 * x1)
+bt  <- log1p(-0.5) / log1p(-mu^2)
+y   <- gkwq_quantile(runif(n), alpha = 2, beta = bt)
+dat <- data.frame(y = y, x1 = x1)
+
+fit <- gkwqreg(y ~ x1, data = dat, tau = 0.5, family = "kw")
+
+B <- bread.gkwqreg(fit)
+all.equal(B / nobs(fit), vcov(fit), check.attributes = FALSE)   # TRUE
+
+## The bread alone gives the model-based standard errors back:
+round(sqrt(diag(B / nobs(fit))), 4)
+round(sqrt(diag(vcov(fit))), 4)
+}
+\seealso{
+\code{\link[=estfun.gkwqreg]{estfun.gkwqreg()}}, \code{\link[=vcov.gkwqreg]{vcov.gkwqreg()}}.
 }

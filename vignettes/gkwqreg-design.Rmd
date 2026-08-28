@@ -283,7 +283,7 @@ nothing would announce it.
 **The alternatives.** Nudging whole-number shapes by `1e-8` in the starting values is
 verified to restore correct derivatives and is far less code — but it protects only the
 starting point, and nothing stops the optimizer from landing on a whole number later, where
-the failure is silent again. Boik and Robinson-Cox (1998) is the reference algorithm and
+the failure is silent again. Boik and Robison-Cox (1998) is the reference algorithm and
 additionally yields second derivatives, but it is an order of magnitude more code and
 Decision 4 means second-order AD is never needed. The series is the smallest thing that is
 actually correct everywhere.
@@ -373,10 +373,13 @@ nesting-lattice test for the shared template.
 
 # References
 
-- Boik, R. J. and Robinson-Cox, J. F. (1998). Derivatives of the incomplete beta function.
+- Boik, R. J. and Robison-Cox, J. F. (1998). Derivatives of the incomplete beta function.
   *Journal of Statistical Software* **3**(1), 1-20. \doi{10.18637/jss.v003.i01}
+  (The journal's own article page misspells the second author as "Robinson-Cox".
+  "Robison-Cox" is the spelling in Crossref's deposit and on the author's own
+  faculty page at Montana State University; it is the one used here.)
 - Cox, D. R. and Reid, N. (1987). Parameter orthogonality and approximate conditional
-  inference. *JRSS-B* **49**, 1-39.
+  inference. *JRSS-B* **49**(1), 1-18.
 - Mitnik, P. A. and Baek, S. (2013). The Kumaraswamy distribution: median-dispersion
-  re-parameterizations. *Statistical Papers* **54**, 177-192.
-  \doi{10.1007/s00362-011-0417-y}
+  re-parameterizations for regression modeling and simulation-based estimation.
+  *Statistical Papers* **54**(1), 177-192. \doi{10.1007/s00362-011-0417-y}

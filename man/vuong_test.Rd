@@ -7,20 +7,193 @@
 vuong_test(object, object2, correction = TRUE)
 }
 \arguments{
-\item{object, object2}{Two \code{"gkwqreg"} fits at the same quantile level, over
-the same observations.}
+\item{object, object2}{Two \code{"gkwqreg"} fits at the same quantile level and
+over the same observations. The order matters only through the sign of the
+statistic: \code{object} is model 1 and \code{object2} is model 2. The two may differ
+in family, in anchor, in the covariates entering any part, or in all three.}
 
-\item{correction}{Apply the BIC-style dimension correction.}
+\item{correction}{Logical. If \code{TRUE}, the default, apply the BIC-style
+dimension correction described below, which penalizes whichever model
+estimates more coefficients. If \code{FALSE}, compare the raw per-observation
+log-likelihood contributions. The correction is exactly zero when the two
+fits have the same number of coefficients, which is the case for a
+comparison of two anchors.}
 }
 \value{
-An object of class \code{"gkwq_vuong"}.
+An object of class \code{"gkwq_vuong"}: a list with components
+\describe{
+\item{\code{statistic}}{the value of \eqn{Z}.}
+\item{\code{p.value}}{the two-sided p-value \eqn{2\,\Phi(-|Z|)}.}
+\item{\code{n}}{the number of observations, common to both fits.}
+\item{\code{model1},\code{model2}}{character labels of the form
+\code{"family / anchor a"} identifying the two fits.}
+\item{\code{tau}}{the common quantile level.}
+\item{\code{correction}}{the value of \code{correction} that was used.}
+}
+The \code{print()} method reports the two labels, the statistic, the p-value, and
+the verdict at the five per cent level.
 }
 \description{
-The right tool for comparing two anchors on the same data, or two families
-that are not nested. Both give models of the same dimension fitted to the
-same responses, so a likelihood-ratio test does not apply.
+Tests whether two models fitted to the same responses, at the same quantile
+level, are equally close to the true data-generating distribution. This is
+the right instrument for the two comparisons a likelihood-ratio test cannot
+make: two anchors of the same family, and two families that do not nest.
+Both produce models of equal dimension fitted to the same data, for which no
+null hypothesis of restriction exists and no degrees of freedom remain.
+}
+\details{
+Let \eqn{f_1} and \eqn{f_2} denote the two fitted conditional densities and
+\eqn{h} the unknown true one. Vuong's null hypothesis is that the two models
+are \emph{equally close to the truth} in Kullback-Leibler divergence,
+
+\deqn{H_0 : \quad E\left[ \log \frac{f_1(Y_i \mid x_i; \theta_1^{*})}
+                               {f_2(Y_i \mid x_i; \theta_2^{*})} \right] = 0,}
+
+the expectation taken under \eqn{h} and \eqn{\theta_k^{*}} being the
+pseudo-true parameter of model \eqn{k}. The alternatives are one-sided in
+either direction: \eqn{H_1}, that model 1 is closer to the truth, and
+\eqn{H_2}, that model 2 is. Crucially, \strong{neither model is assumed correct}.
+The test is about relative distance to the truth, so rejecting \eqn{H_0} says
+that one model is nearer, never that it is right.
+}
+\section{The statistic}{
+
+Write \eqn{\ell_{ki}(\hat\theta_k)} for the log-likelihood contribution of
+observation \eqn{i} under model \eqn{k}, stored in \code{object$loglik_i}, and let
+
+\deqn{m_i = \ell_{1i}(\hat\theta_1) - \ell_{2i}(\hat\theta_2), \qquad
+      i = 1, \ldots, n.}
+
+With \code{correction = TRUE} these differences are shifted by the per-observation
+share of the dimension penalty,
+
+\deqn{\tilde m_i = m_i - \frac{(p_1 - p_2)\log n}{2n},}
+
+where \eqn{p_k} is the number of coefficients estimated by model \eqn{k}; with
+\code{correction = FALSE}, \eqn{\tilde m_i = m_i}. The reported statistic is the
+studentized mean
+
+\deqn{Z = \frac{\sqrt{n}\, \bar{\tilde m}}{s}, \qquad
+      s^2 = \frac{1}{n - 1} \sum_{i=1}^{n} (\tilde m_i - \bar{\tilde m})^2,}
+
+with \eqn{s} the ordinary sample standard deviation, as computed by
+\code{\link[stats:sd]{stats::sd()}}. Under \eqn{H_0}, and for strictly non-nested models,
+\eqn{Z} converges in distribution to a standard normal, so the two-sided
+p-value is \eqn{2\,\Phi(-|Z|)}.
+
+The denominator is what distinguishes this from a naive comparison of
+log-likelihoods. A difference in total log-likelihood says nothing on its own
+about sampling variability; \eqn{s} measures how consistently one model beats
+the other across observations, so a small total advantage accumulated
+steadily over every observation can be decisive, while a large advantage
+driven by a handful of points is not.
+}
+
+\section{Reading the sign}{
+
+The sign of \eqn{Z} points at the favoured model, and the p-value says
+whether the data support the preference at all.
+\itemize{
+\item \eqn{Z > 0} with a small p-value: model 1, that is \code{object}, is favoured.
+\item \eqn{Z < 0} with a small p-value: model 2, that is \code{object2}, is favoured.
+\item a large p-value: the data do not discriminate between the two. This is a
+genuine third conclusion and not a failure to establish a preference: it
+states that both models sit at the same Kullback-Leibler distance from the
+truth as far as these data can tell. For an anchor comparison it is the
+expected outcome once the nuisance parameters are saturated, and the
+example below shows exactly that.
+}
+
+The \code{print()} method states the verdict at the conventional five per cent
+level.
+}
+
+\section{The dimension correction}{
+
+The uncorrected statistic compares maximized log-likelihoods, and therefore
+rewards the more flexible model for its flexibility alone. The correction
+subtracts half the difference of BIC penalties, spread evenly over the
+observations. Summing the corrected differences shows what it buys:
+
+\deqn{\sum_{i=1}^{n} \tilde m_i \;=\; \ell_1 - \ell_2
+      - \frac{(p_1 - p_2)\log n}{2}
+      \;=\; \frac{\mathrm{BIC}_2 - \mathrm{BIC}_1}{2},}
+
+since \eqn{\mathrm{BIC}_k = -2\ell_k + p_k \log n}. The corrected numerator is
+thus one half of the BIC difference, oriented so that a positive value favours
+model 1, and the test is a formal significance statement about a BIC
+comparison rather than an informal reading of one. When \eqn{p_1 = p_2} the
+correction term vanishes identically and the two settings of \code{correction}
+agree to the last digit.
+}
+
+\section{When this test does not apply}{
+
+The standard normal reference requires the two models to be \emph{strictly}
+non-nested. For a genuinely nested pair, one family restricting another, the
+variance \eqn{s^2} tends to zero under the null and the limit of \eqn{Z} is
+not normal; the correct reference there is chi-squared, which is what
+\code{\link[=anova.gkwqreg]{anova.gkwqreg()}} uses. Use \code{anova()} for a nested pair and this function for
+everything else.
+
+The two fits must also share the quantile level and the number of
+observations, both of which are checked. Fits at different levels answer
+different questions and their likelihoods are not commensurable; fits on
+different samples give differences \eqn{m_i} that are not paired.
+}
+
+\examples{
+## Data generated under the "beta" anchor of the Kumaraswamy family: alpha is
+## constant at 2 and beta is the quantity that varies with the covariate.
+set.seed(11)
+n  <- 400
+x  <- runif(n, -2, 2)
+mu <- plogis(0.4 + 1.1 * x)                  # true conditional 0.9-quantile
+y  <- gkwdist::rkw(n, alpha = 2, beta = log1p(-0.9) / log1p(-mu^2))
+d  <- data.frame(y = y, x = x)
+
+## Two anchors, same family, same level, same data: three coefficients each,
+## and neither nested in the other. anova() refuses them; this does not.
+f_beta  <- gkwqreg(y ~ x, data = d, tau = 0.9, family = "kw")
+f_alpha <- gkwqreg(y ~ x, data = d, tau = 0.9, family = "kw",
+                   anchor = "alpha")
+vuong_test(f_beta, f_alpha)
+##   z = 6.316, p-value = 2.679e-10
+##   model 1 is favoured
+## z is large and positive, so model 1 -- the beta anchor, the one the data
+## were generated under -- is favoured decisively.
+
+## Both fits estimate three coefficients, so the dimension correction is
+## identically zero and switching it off changes nothing.
+identical(vuong_test(f_beta, f_alpha)$statistic,
+          vuong_test(f_beta, f_alpha, correction = FALSE)$statistic)
+## [1] TRUE
+
+## Saturating the nuisance parameter -- regressing alpha, respectively beta,
+## on the same covariate as the quantile -- makes the anchor choice almost
+## immaterial, which is the recommended practice when theory does not
+## dictate an anchor.
+s_beta  <- gkwqreg(y ~ x | x, data = d, tau = 0.9, family = "kw")
+s_alpha <- gkwqreg(y ~ x | x, data = d, tau = 0.9, family = "kw",
+                   anchor = "alpha")
+vuong_test(s_beta, s_alpha)
+##   z = 1.62, p-value = 0.1052
+##   neither model is favoured
+## The evidence has evaporated. Saturation has turned two different models
+## into two parametrizations of very nearly the same one.
+
+## Non-nested families work the same way. "kw" restricts alpha and beta while
+## "beta" restricts them away entirely, so neither contains the other.
+f_bet <- gkwqreg(y ~ x, data = d, tau = 0.9, family = "beta")
+vuong_test(f_beta, f_bet)
+
 }
 \references{
 Vuong, Q. H. (1989). Likelihood ratio tests for model selection and
 non-nested hypotheses. \emph{Econometrica} \strong{57}, 307-333.
+}
+\seealso{
+\code{\link[=anova.gkwqreg]{anova.gkwqreg()}} for the nested case; \code{\link[=compare_families]{compare_families()}} for a
+sweep over all seven families by AIC, BIC and check loss; \code{\link[=gkwqreg]{gkwqreg()}} for
+why two anchors are two models.
 }

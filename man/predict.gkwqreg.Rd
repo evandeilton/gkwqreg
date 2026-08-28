@@ -2,7 +2,7 @@
 % Please edit documentation in R/gkwqreg-predict.R
 \name{predict.gkwqreg}
 \alias{predict.gkwqreg}
-\title{Predictions from a quantile regression fit}
+\title{Predictions from a fixed-level quantile regression fit}
 \usage{
 \method{predict}{gkwqreg}(
   object,
@@ -17,32 +17,204 @@
 )
 }
 \arguments{
-\item{object}{A \code{"gkwqreg"} fit.}
+\item{object}{A \code{"gkwqreg"} fit, as returned by \code{\link[=gkwqreg]{gkwqreg()}}.}
 
-\item{newdata}{Optional data frame; defaults to the fitting data.}
+\item{newdata}{Optional data frame in which to evaluate the model. It must
+contain every variable used by \emph{every} part of the formula, not only the
+quantile part. Factor levels and contrasts recorded at fit time are
+reapplied, so a factor whose levels are incompletely represented in
+\code{newdata} still produces columns consistent with the fit. Defaults to the
+estimation data.}
 
-\item{type}{One of \code{"quantile"} (the default, equivalently \code{"response"}),
-\code{"link"}, \code{"parameter"}, \code{"mu"}, \code{"density"}, \code{"probability"}, \code{"terms"},
-\code{"mean"}, \code{"variance"}.}
+\item{type}{The quantity to predict; see the table below. \code{"response"} is an
+alias for \code{"quantile"}, retained so that code written against other
+regression classes keeps running -- but note that here the "response
+scale" prediction is a quantile, not a mean.}
 
-\item{at}{Evaluation points for \code{type = "density"} or \code{"probability"}.}
+\item{at}{Numeric vector of points in \verb{(0,1)} at which the density or the
+distribution function is evaluated. Required for \code{type = "density"} and
+\code{type = "probability"}, and ignored otherwise.}
 
-\item{tau}{Optional quantile level(s). \strong{This predicts a different quantile of
-the same fitted conditional distribution.} Refitting at another level gives
-a different model; the two agree only if the family is correctly specified,
-and the gap between them is itself a specification diagnostic (see
-\code{\link[=check_crossing]{check_crossing()}}).}
+\item{tau}{Optional numeric vector of quantile levels in \verb{(0,1)}, used only
+by \code{type = "quantile"} and \code{type = "response"}. \strong{These are further
+quantiles of the same fitted conditional distribution, not a refit}; see
+the section below. \code{NULL} (the default) returns the level the model was
+fitted at.}
 
-\item{elementwise}{If \code{TRUE}, \code{at} is paired with rows rather than crossed
-with them.}
+\item{elementwise}{Logical, governing how \code{at} is combined with the rows.
+\code{TRUE} pairs the \code{i}th element of \code{at} with the \code{i}th row, recycling \code{at}
+if necessary, and returns a vector; \code{FALSE} crosses every element of \code{at}
+with every row and returns a matrix. The default is \code{TRUE} when \code{at} has
+exactly one element per row and there is more than one row, and \code{FALSE}
+otherwise.}
 
-\item{na.action}{Handling of missing values in \code{newdata}.}
+\item{na.action}{How to treat missing values in \code{newdata}. The default,
+\code{\link[stats:na.pass]{stats::na.pass()}}, retains the rows and propagates \code{NA} into the
+predictions, so the result stays aligned with the rows of \code{newdata}.}
 
-\item{...}{Unused.}
+\item{...}{Currently unused; present for consistency with the generic.}
 }
 \value{
-A vector, matrix or data frame depending on \code{type}.
+The shape depends on \code{type}, and for \code{"quantile"} also on \code{tau}.
+\itemize{
+\item \code{"quantile"}, \code{"response"}, \code{"mu"}: a numeric vector with one element per
+row of \code{newdata}, or per observation used in the fit. If \code{tau} is supplied
+to \code{"quantile"}/\code{"response"}, an \code{n} by \code{length(tau)} matrix whose columns
+are named \code{"tau=<level>"}.
+\item \code{"link"}: a data frame with \code{n} rows and one column per model part, named
+after the parts (\code{mu} first), holding the linear predictors.
+\item \code{"parameter"}: a data frame with \code{n} rows and the five columns \code{alpha},
+\code{beta}, \code{gamma}, \code{delta}, \code{lambda}, in \code{gkwdist} order.
+\item \code{"mean"}, \code{"variance"}: numeric vectors of length \code{n}.
+\item \code{"density"}, \code{"probability"}: an \code{n} by \code{length(at)} matrix whose columns
+are named after \code{at}, or a numeric vector of length \code{n} when
+\code{elementwise = TRUE}.
+\item \code{"terms"}: a named list with one matrix per model part. Each matrix has \code{n}
+rows and one column per non-intercept term of that part; a part with no
+covariates contributes a matrix with zero columns.
+}
+
+Applying \code{predict()} to the \code{"gkwqregs"} container returned by a vector-valued
+\code{tau} predicts from each fit in turn, and binds the results column-wise, named
+by level, when every level returned a plain vector of the same length.
 }
 \description{
-Predictions from a quantile regression fit
+Evaluates a fitted \code{\link[=gkwqreg]{gkwqreg()}} model at the estimation data or at \code{newdata}.
+The first part of the model \emph{is} the conditional quantile, so the default
+prediction is the conditional \eqn{\tau}-quantile itself and never a
+conditional mean. Densities, distribution functions and moments are all
+derived from the same fitted conditional distribution.
+}
+\details{
+Write \eqn{g} for the link of the quantile part (\code{"logit"} by default) and
+\eqn{o_i} for its offset. The default prediction is
+\deqn{\widehat{Q}(\tau \mid x_i) \;=\; \hat\mu_\tau(x_i) \;=\;
+  g^{-1}\!\left(x_i^{\top}\hat\beta_\mu + o_i\right).}
+
+Every other \code{type} is obtained by first reconstructing, row by row, the full
+parameter vector \eqn{(\alpha, \beta, \gamma, \delta, \lambda)} of the
+Generalized Kumaraswamy distribution: the non-anchored parameters come from
+their own linear predictors and links, and the anchored parameter is solved
+for so that the resulting distribution has \eqn{\hat\mu_\tau(x_i)} as its
+exact \eqn{\tau}-quantile. A useful consequence is that
+\deqn{F\!\left(\widehat{Q}(\tau \mid x_i) \mid x_i\right) = \tau}
+holds to machine precision for every row, which is the cheapest available
+check that a prediction pipeline has not silently drifted onto some other
+scale (see the examples).
+}
+\section{Values of \code{type}}{
+\tabular{lll}{
+   \code{type} \tab What is returned \tab Typical use \cr
+   \code{"quantile"} (default), \code{"response"} \tab the conditional tau-quantile; with \code{tau} supplied, several quantiles of the same fitted distribution \tab the headline prediction \cr
+   \code{"mu"} \tab the conditional tau-quantile, always ignoring \code{tau} \tab when the fitted level is wanted inside code that passes \code{tau} around \cr
+   \code{"link"} \tab the linear predictors of every part, each on its own link scale \tab diagnostics, and plotting on the scale the model is linear in \cr
+   \code{"parameter"} \tab the reconstructed five distribution parameters per row \tab handing the fitted conditional law to \code{gkwdist} functions \cr
+   \code{"mean"} \tab the conditional mean, by 64-node Gauss-Legendre quadrature of the quantile function \tab comparison with a mean-parametrized fit \cr
+   \code{"variance"} \tab the conditional variance, by the same quadrature \tab assessing conditional dispersion \cr
+   \code{"density"} \tab the conditional density evaluated at \code{at} \tab likelihood displays, simulated envelopes \cr
+   \code{"probability"} \tab the conditional distribution function evaluated at \code{at} \tab exceedance probabilities, probability-integral-transform checks \cr
+   \code{"terms"} \tab each term's additive contribution to its part's linear predictor \tab partial-effect plots \cr
+}
+
+
+\code{"mean"} and \code{"variance"} integrate \eqn{\int_0^1 Q(u)^k \, du} rather than
+the density, because \eqn{Q} is available in closed form and has no boundary
+singularity to work around. They are provided so that a quantile fit can be
+put beside a mean-parametrized one; reporting the conditional mean as though
+it were the estimand of this model defeats the point of the parametrization.
+}
+
+\section{Reading other levels off the fit versus refitting}{
+
+Supplying \code{tau} returns quantiles of the \strong{same fitted conditional
+distribution} read at other probabilities. This is not the same object as
+\code{gkwqreg(..., tau = tau_new)}, which solves a different estimating problem
+and in general returns different coefficients.
+\itemize{
+\item Reading off is a \emph{distributional extrapolation}. It borrows strength from
+the parametric family, costs nothing beyond a call to the quantile
+function, and is monotone in \code{tau} by construction, so predictions read off
+one fit can never cross.
+\item Refitting is a \emph{level-specific} estimate. It targets the new level
+directly, and is the honest thing to report when the family may be wrong
+away from the level already fitted.
+}
+
+The two coincide only if the family is correctly specified. The gap between
+them is therefore a specification diagnostic in its own right: a small
+discrepancy far from the fitted \code{tau} supports the shape assumption, and a
+large one says the parametric tail, rather than the systematic part of the
+model, is doing the work. See \code{\link[=quantile_process]{quantile_process()}} for the systematic version
+of this comparison and \code{\link[=check_crossing]{check_crossing()}} for what can go wrong once several
+levels are fitted separately.
+}
+
+\examples{
+## A Kumaraswamy sample whose conditional MEDIAN follows a logit model.
+## Drawn by inverse transform through gkwq_quantile(), so the data-generating
+## process is exactly the one the model assumes.
+set.seed(2024)
+n   <- 300
+x1  <- runif(n, -2, 2)
+x2  <- rbinom(n, 1, 0.5)
+mu  <- plogis(0.3 + 0.9 * x1 - 0.5 * x2)      # true conditional median
+bt  <- log1p(-0.5) / log1p(-mu^2)             # beta anchoring Q(0.5) = mu
+y   <- gkwq_quantile(runif(n), alpha = 2, beta = bt)
+dat <- data.frame(y = y, x1 = x1, x2 = factor(x2))
+
+fit <- gkwqreg(y ~ x1 + x2 | x1, data = dat, tau = 0.5, family = "kw")
+
+## -- the default prediction is a conditional quantile --------------------
+nd <- data.frame(x1 = c(-1, 0, 1), x2 = factor(0, levels = c("0", "1")))
+predict(fit, nd)
+## 0.3651 0.5755 0.7618.  Read this as: among units with x1 = 0 and x2 = 0,
+## half are predicted to fall below 0.5755 -- NOT "they average 0.5755".
+
+## -- the arithmetic check ------------------------------------------------
+predict(fit, nd, type = "probability", at = predict(fit, nd),
+        elementwise = TRUE)
+## 0.5 0.5 0.5 exactly: the fitted distribution puts mass tau below its own
+## fitted tau-quantile, by construction of the anchor.
+
+## -- other levels of the SAME fit ---------------------------------------
+predict(fit, nd, tau = c(0.1, 0.5, 0.9))
+## The "tau=0.5" column reproduces the default call above; the other two are
+## read off the same conditional law and were never targeted by estimation.
+
+## How much does that extrapolation cost?  Compare with a genuine refit.
+fit90 <- gkwqreg(y ~ x1 + x2 | x1, data = dat, tau = 0.9, family = "kw")
+cbind(read_off = predict(fit, nd, tau = 0.9)[, 1],
+      refit    = predict(fit90, nd))
+##      read_off  refit
+## [1,]   0.5945 0.6252
+## [2,]   0.8438 0.8533
+## [3,]   0.9668 0.9530
+## Close, as it should be here: the family is correctly specified. A wide
+## gap would indict the shape assumption, not the covariate effects.
+
+## -- the fitted conditional distribution, row by row ---------------------
+predict(fit, nd, type = "parameter")   # alpha, beta, gamma, delta, lambda
+predict(fit, nd, type = "link")        # eta for every part
+predict(fit, nd, type = "mean")        # 0.3720 0.5630 0.7123
+predict(fit, nd, type = "variance")
+## The conditional mean (0.5630) is NOT the conditional median (0.5755):
+## the fitted Kumaraswamy law is skewed. This is why fitted() must not be
+## read as a mean.
+
+## -- densities and probabilities ----------------------------------------
+predict(fit, nd, type = "density", at = c(0.25, 0.50, 0.75))
+## A VECTOR of length 3, not a matrix: `at` happens to have exactly one
+## element per row, so `elementwise` defaults to TRUE and pairs the ith
+## point with the ith row. Say so explicitly when that is not the intent:
+predict(fit, nd, type = "density", at = c(0.25, 0.50, 0.75),
+        elementwise = FALSE)                                     # 3 x 3
+predict(fit, nd, type = "probability", at = 0.5)                 # 3 x 1
+
+## -- additive term contributions ----------------------------------------
+predict(fit, nd, type = "terms")$mu
+}
+\seealso{
+\code{\link[=gkwqreg]{gkwqreg()}} for the model, \code{\link[=fitted.gkwqreg]{fitted.gkwqreg()}} for the in-sample
+quantiles, \code{\link[=marginal_effects]{marginal_effects()}} for effects on the quantile scale,
+\code{\link[=quantile_process]{quantile_process()}} and \code{\link[=check_crossing]{check_crossing()}} for several levels at once.
 }

@@ -240,8 +240,10 @@ either $\tau$ itself or the elementary $1-(1-\tau)^{1/(\delta+1)}$.
 
 ## References
 
-- Carrasco, Ferrari and Cordeiro (2010). A generalized Kumaraswamy distribution.
+- Carrasco, J. M. F., Ferrari, S. L. P. and Cordeiro, G. M. (2010). A New Generalized
+  Kumaraswamy Distribution. arXiv:1004.0911. \doi{10.48550/arXiv.1004.0911}
 - Mitnik and Baek (2013). *Statistical Papers* **54**, 177–192.
-- Cox and Reid (1987). Parameter orthogonality and approximate conditional inference.
-- Boik and Robinson-Cox (1998). Derivatives of the incomplete beta function.
-  *Journal of Statistical Software* **3**(1).
+- Cox, D. R. and Reid, N. (1987). Parameter orthogonality and approximate conditional
+  inference. *JRSS-B* **49**(1), 1-18. \doi{10.1111/j.2517-6161.1987.tb01422.x}
+- Boik, R. J. and Robison-Cox, J. F. (1998). Derivatives of the incomplete beta
+  function. *Journal of Statistical Software* **3**(1), 1-20. \doi{10.18637/jss.v003.i01}

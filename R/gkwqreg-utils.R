@@ -166,7 +166,9 @@
                drop.unused.levels = TRUE)
   if (!is.null(subset)) args$subset <- subset
   if (!is.null(weights)) args$weights <- weights
-  if (!is.null(offset)) args$offset <- offset
+  ## `offset` is deliberately NOT passed to model.frame. It would arrive back
+  ## through model.offset() *in addition to* the per-part offset() terms already
+  ## collected below, and the conditional quantile would receive it twice.
   mf <- do.call(stats::model.frame, args)
 
   y <- stats::model.response(mf, "numeric")
@@ -181,18 +183,30 @@
     mtk <- stats::terms(fobj, data = data, rhs = k, lhs = 0)
     X[[k]] <- stats::model.matrix(mtk, mf, contrasts.arg = contrasts)
     terms_list[[k]] <- mtk
-    ok <- stats::model.offset(stats::model.frame(mtk, mf))
-    offs[[k]] <- if (is.null(ok)) rep(0, n) else as.numeric(ok)
+    ## Read this part's offset BY NAME out of the model frame that already
+    ## exists. Rebuilding a frame here -- model.frame(mtk, mf) -- re-evaluates
+    ## the terms' predvars against mf, and mf holds a column literally named
+    ## "log(z)" rather than a column "z", so ANY transformed term
+    ## (log(), I(), poly(), splines) died with "object 'z' not found".
+    offs[[k]] <- .gkwq_part_offset(mtk, mf, n)
   }
 
   w <- stats::model.weights(mf)
   if (is.null(w)) w <- rep(1, n)
   if (any(w < 0)) stop("negative weights are not allowed.", call. = FALSE)
 
-  ## An `offset` argument, as opposed to an offset() term, attaches to the
-  ## conditional quantile: it is the part an offset is normally meant for.
-  o <- stats::model.offset(mf)
-  if (!is.null(o)) offs[[1L]] <- offs[[1L]] + as.numeric(o)
+  ## An `offset` ARGUMENT, as opposed to an offset() term inside the formula,
+  ## attaches to the conditional quantile: it is the part an offset is normally
+  ## meant for. offset() terms were already collected per part above, so this
+  ## adds the argument only, and adds it once.
+  if (!is.null(offset)) {
+    ov <- as.numeric(offset)
+    if (length(ov) != n) {
+      stop("`offset` has length ", length(ov), " but there are ", n,
+           " observations.", call. = FALSE)
+    }
+    offs[[1L]] <- offs[[1L]] + ov
+  }
 
   list(y = y, X = X, weights = as.numeric(w), offsets = offs,
        terms = terms_list, mf = mf, formula = fobj,
@@ -224,6 +238,19 @@
     cn <- colnames(X[[p]])
     if (is.null(cn) || !length(cn)) character(0) else paste0(p, ":", cn)
   }), use.names = FALSE)
+}
+
+## Offsets declared as offset() terms inside one formula part. attr(, "offset")
+## indexes the part's own variable list, so the expressions are matched by name
+## against the columns of the already-built model frame; nothing is re-evaluated.
+.gkwq_part_offset <- function(mtk, mf, n) {
+  idx <- attr(mtk, "offset")
+  if (is.null(idx) || !length(idx)) return(rep(0, n))
+  vars <- as.character(attr(mtk, "variables"))[-1L]
+  cols <- match(vars[idx], names(mf))
+  cols <- cols[!is.na(cols)]
+  if (!length(cols)) return(rep(0, n))
+  rowSums(vapply(mf[cols], as.numeric, numeric(n)))
 }
 
 `%||%` <- function(x, y) if (is.null(x)) y else x

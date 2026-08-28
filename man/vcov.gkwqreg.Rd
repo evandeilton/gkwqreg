@@ -7,28 +7,122 @@
 \method{vcov}{gkwqreg}(object, type = c("expected", "observed", "sandwich"), ...)
 }
 \arguments{
-\item{object}{A \code{"gkwqreg"} fit.}
+\item{object}{A \code{"gkwqreg"} fit, as returned by \code{\link[=gkwqreg]{gkwqreg()}}.}
 
-\item{type}{\code{"expected"} and \code{"observed"} both invert the observed
-information from \code{\link[stats:optimHess]{stats::optimHess()}} applied to the automatic-
-differentiation gradient; \code{"sandwich"} returns
-\verb{H^-1 (sum_i s_i s_i') H^-1} with per-observation scores.}
+\item{type}{Which covariance estimator to return; see the table below.
+Partial matching applies. All three require that the fit carried out the
+Hessian computation, that is, \code{control = gkwq_control(hessian = TRUE)},
+which is the default; otherwise the function errors with instructions to
+refit.}
 
-\item{...}{Unused.}
+\item{...}{Currently unused; present for consistency with the generic.}
 }
 \value{
-A covariance matrix.
+A symmetric numeric matrix of dimension \code{p} by \code{p}, where
+\code{p = object$npar} is the total number of estimated coefficients across all
+parts. Both dimnames are \code{names(coef(object))}, whose entries have the form
+\code{"part:term"} -- \code{"mu:(Intercept)"}, \code{"mu:x1"}, \code{"alpha:x1"} and so on --
+so blocks can be extracted by \code{grep()} on the part prefix.
 }
 \description{
-Covariance matrix of a quantile regression fit
+Returns the estimated covariance matrix of the full stacked coefficient
+vector -- the quantile part and every nuisance part together -- either from
+the observed information alone or in sandwich form.
 }
 \details{
-The observed information is never taken from \code{obj$he()} (that would need
-second-order differentiation through the incomplete-beta atomic) and never
-from the naive \verb{J' H J} sandwich of the unreparametrized Hessian, which omits
-the curvature term \verb{sum_k g_k grad^2 theta_k} and is wrong in a regression.
+All three types are built from the same observed information matrix
+\deqn{\hat{H} \;=\; \left. \frac{\partial^2 \, (-\ell)}
+  {\partial\theta \, \partial\theta^{\top}} \right|_{\theta = \hat\theta},}
+evaluated by \code{\link[stats:optimHess]{stats::optimHess()}} applied to the exact automatic-
+differentiation gradient supplied by \code{TMB} and stored in the fit at
+estimation time. Two routes that look shorter are deliberately not taken.
+The Hessian is never read off \code{obj$he()}, which would require second-order
+differentiation through the incomplete-beta atomic; and it is never obtained
+from the naive \eqn{J^{\top} H J} transformation of the unreparametrized
+Hessian, which omits the curvature term
+\eqn{\sum_k g_k \, \nabla^2 \theta_k} and is simply wrong once the parameters
+vary with covariates.
+}
+\section{The three types}{
+\tabular{lll}{
+   \code{type} \tab Estimator \tab Appropriate when \cr
+   \code{"expected"} (default) \tab \eqn{\hat{H}^{-1}} \tab the family is taken to be correctly specified \cr
+   \code{"observed"} \tab \eqn{\hat{H}^{-1}}, identical to the above \tab provided for interface compatibility \cr
+   \code{"sandwich"} \tab \eqn{\hat{H}^{-1} \left(\sum_i s_i s_i^{\top}\right) \hat{H}^{-1}} \tab the conditional distribution may be misspecified \cr
+}
 
-The conditional quantile is \emph{not} orthogonal to the remaining parameters in
-the Cox-Reid sense, so the off-diagonal blocks matter: report the full matrix
-rather than per-part standard errors alone.
+
+\code{"expected"} and \code{"observed"} return \strong{the same matrix}. Nothing here
+evaluates a Fisher information by expectation: the two names are kept so that
+code written for other regression classes runs unchanged, and the label is
+recorded in \code{summary()} for the record. If the distinction matters to the
+argument being made, say "observed information" and mean it.
+
+The sandwich form replaces the middle of the expression by the empirical
+outer product of the per-observation scores \eqn{s_i} returned by
+\code{\link[=estfun.gkwqreg]{estfun.gkwqreg()}}. It is consistent for the covariance of the maximum
+likelihood estimator when the family is wrong but the quantile equation is
+right, at the cost of a noisier estimate in small samples. A large gap
+between the two is itself informative: under correct specification the
+information equality makes them agree up to sampling error, so a systematic
+discrepancy is evidence against the family.
+}
+
+\section{Why the whole matrix matters}{
+
+The conditional quantile is \strong{not} orthogonal to the remaining parameters in
+the Cox-Reid sense. The information matrix has non-negligible off-diagonal
+blocks linking \eqn{\beta_\mu} to the nuisance coefficients, so uncertainty in
+the shape parameters propagates into the quantile coefficients and vice
+versa. Two consequences follow. Any linear or non-linear function that mixes
+parts -- a contrast, a marginal effect, a predicted quantile -- must be given
+the full matrix, not a per-part block. And per-part standard errors reported
+in isolation understate what is actually known jointly; use
+\code{\link[=confint.gkwqreg]{confint.gkwqreg()}} with \code{method = "profile"} or \code{"boot"} when the Wald
+approximation is doing too much work.
+}
+
+\examples{
+set.seed(2024)
+n   <- 300
+x1  <- runif(n, -2, 2)
+x2  <- rbinom(n, 1, 0.5)
+mu  <- plogis(0.3 + 0.9 * x1 - 0.5 * x2)
+bt  <- log1p(-0.5) / log1p(-mu^2)
+y   <- gkwq_quantile(runif(n), alpha = 2, beta = bt)
+dat <- data.frame(y = y, x1 = x1, x2 = factor(x2))
+
+fit <- gkwqreg(y ~ x1 + x2 | x1, data = dat, tau = 0.5, family = "kw")
+
+V <- vcov(fit)
+dim(V)                                   # 5 x 5: three mu, two alpha
+rownames(V)                              # "mu:(Intercept)" ... "alpha:x1"
+identical(V, vcov(fit, type = "observed"))   # TRUE, by construction
+
+## -- the quantile block is NOT orthogonal to the nuisance block ----------
+round(cov2cor(V), 3)
+## cor(mu:(Intercept), alpha:(Intercept)) = 0.319 and
+## cor(mu:x1, alpha:x1) = 0.468.  Uncertainty about the shape parameter is
+## not separable from uncertainty about the median; this is why anything
+## mixing parts must be handed the whole matrix.
+
+## -- model-based versus sandwich standard errors -------------------------
+Vs <- vcov(fit, type = "sandwich")
+round(cbind(model = sqrt(diag(V)), sandwich = sqrt(diag(Vs)),
+            ratio = sqrt(diag(Vs) / diag(V))), 4)
+## Ratios between 0.91 and 1.11 here.  The family is correctly specified in
+## this simulation, so the information equality holds and the two agree up
+## to sampling error, exactly as it should.
+
+## -- a Wald table built by hand from whichever matrix you trust ----------
+est <- coef(fit); se <- sqrt(diag(Vs))
+round(cbind(Estimate = est, `Std. Error` = se, z = est / se,
+            `Pr(>|z|)` = 2 * pnorm(-abs(est / se))), 4)
+}
+\seealso{
+\code{\link[=estfun.gkwqreg]{estfun.gkwqreg()}} and \code{\link[=bread.gkwqreg]{bread.gkwqreg()}} for the ingredients of the
+sandwich and for interoperability with the \pkg{sandwich} package,
+\code{\link[=confint.gkwqreg]{confint.gkwqreg()}} for intervals that do not rely on the Wald
+approximation, \code{\link[=summary.gkwqreg]{summary.gkwqreg()}} which uses this to build its coefficient
+table.
 }

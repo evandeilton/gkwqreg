@@ -7,29 +7,181 @@
 gkwq_boot(object, R = 200L, type = c("pairs", "parametric"), seed = NULL, ...)
 }
 \arguments{
-\item{object}{A \code{"gkwqreg"} fit.}
+\item{object}{A \code{"gkwqreg"} fit. It must have been fitted with
+\code{model = TRUE}, which is the default, because the retained model frame is
+what gets resampled; otherwise the function stops with an explanatory
+message.}
 
-\item{R}{Number of bootstrap replicates.}
+\item{R}{Number of bootstrap replicates. The default of 200 is adequate for
+a standard error, which is a scale estimate and converges quickly.
+Percentile intervals estimate the tails of the replicate distribution and
+need considerably more, of the order of 1000 or beyond.}
 
-\item{type}{\code{"pairs"} resamples observations, which is robust to
-misspecification of the conditional distribution; \code{"parametric"} redraws
-responses from the fitted distributions, which is more efficient when the
-family is right and misleading when it is not.}
+\item{type}{Resampling scheme, one of \code{"pairs"} or \code{"parametric"}.
+\code{"pairs"}, the default, resamples whole observations -- rows of the model
+frame, response and covariates together -- with replacement.
+\code{"parametric"} holds the covariates fixed and redraws only the responses,
+from the fitted conditional distributions, via \code{\link[=simulate.gkwqreg]{simulate.gkwqreg()}}.}
 
-\item{seed}{Optional seed.}
+\item{seed}{Optional seed, passed to \code{\link[base:set.seed]{base::set.seed()}}. Unlike
+\code{\link[=simulate.gkwqreg]{simulate.gkwqreg()}}, the ambient random number stream is \strong{not} restored
+afterwards, so a seeded call does change \code{.Random.seed}.}
 
-\item{...}{Unused.}
+\item{...}{Unused; present for future extension.}
 }
 \value{
-An object of class \code{"gkwq_boot"} carrying the replicate coefficient
-matrix, its covariance and percentile intervals.
+An object of class \code{"gkwq_boot"}: a list with components
+\describe{
+\item{\code{replicates}}{an \code{R} by \eqn{p} matrix of replicate coefficient
+vectors, with column names from the fit and \code{NA} rows where a replicate
+failed.}
+\item{\code{vcov}}{the \eqn{p} by \eqn{p} bootstrap covariance matrix
+\eqn{\widehat V}, computed over the surviving replicates only.}
+\item{\code{R}}{the number of replicates requested.}
+\item{\code{n_ok}}{the number that converged and entered the summaries.}
+\item{\code{type}}{the resampling scheme used.}
+\item{\code{estimate}}{the coefficients of the original fit.}
+\item{\code{se}}{bootstrap standard errors, the square root of
+\code{diag(vcov)}.}
+\item{\code{percentile}}{a \eqn{p} by 2 matrix of percentile interval endpoints
+at 0.025 and 0.975, one row per coefficient.}
+\item{\code{tau},\code{family},\code{anchor}}{copied from the fit, for the printed
+header.}
+}
+The \code{print()} method shows the original estimates beside the bootstrap
+standard errors and the percentile interval.
 }
 \description{
-Bootstrap a quantile regression fit
+Refits the model on \code{R} resampled data sets and summarizes the resulting
+spread of the coefficients: a bootstrap standard error and a percentile
+interval for each one, together with the full replicate matrix and its
+covariance. It is the tool to reach for when the model-based Wald standard
+errors are in doubt -- a small sample, a weakly identified family, an
+information matrix that is barely positive definite, or simply a
+distributional assumption one would rather not lean on.
 }
 \details{
-\code{"pairs"} is the default deliberately. The whole trade-off of parametric
-quantile regression is that it buys efficiency under a distributional
-assumption; a bootstrap that re-imposes that same assumption cannot tell you
-anything about whether it holds.
+Each replicate re-evaluates the original call on the resampled data. Two
+arguments are stripped from that call because both refer to the original
+rows and would no longer be aligned: \code{subset}, which has already been
+applied in building the model frame, and \code{weights}. \strong{A weighted fit is
+therefore bootstrapped unweighted}, and the bootstrap standard errors of
+such a fit describe a different estimator from the one that was fitted. An
+offset written into the formula with \code{offset()} lives in the model frame and
+does follow the resampling; one supplied as a free-standing vector does not.
+}
+\section{Why pairs is the default}{
+
+The whole bargain of parametric quantile regression is that it buys
+efficiency, and interpretable coefficients, by assuming a conditional
+distribution. A parametric bootstrap re-imposes that very assumption at
+every replicate: the responses it draws are by construction exactly what the
+fitted family says they should be, since \code{\link[=simulate.gkwqreg]{simulate.gkwqreg()}} samples from
+the fitted distributions themselves. Its intervals therefore describe the
+sampling behaviour of the estimator \emph{in a world where the family is
+correct}, and can say nothing whatever about whether that is the world the
+data came from. If the distributional assumption is the thing in question,
+the parametric bootstrap is constitutionally unable to answer.
+
+The pairs bootstrap makes no such assumption. It resamples observations and
+so requires only that they be exchangeable draws from the joint distribution
+of response and covariates. Its spread reflects whatever generated the data,
+correctly specified or not, which is why it is the honest default. The price
+is some efficiency when the family really is right, and a heavier tail in
+small samples, where a resample can happen to contain too few distinct
+covariate patterns to identify the model -- a factor variable with a rare
+level is the usual culprit, and shows up as a low \code{n_ok}.
+
+Use \code{type = "parametric"} when the family is \emph{not} what is being questioned:
+to check the accuracy of the Wald approximation for a family one is willing
+to assume, to study the estimator's behaviour in a simulation, or to build
+envelopes for a diagnostic plot.
+}
+
+\section{Failed replicates}{
+
+A replicate whose refit throws an error, or which the optimizer does not
+certify as converged, contributes a row of \code{NA} to \code{replicates} and is
+excluded from the covariance, the standard errors and the percentile
+intervals. The count that survived is reported as \code{n_ok} and printed
+alongside \code{R}. That ratio is itself a diagnostic: a fit that loses a
+noticeable share of its replicates is telling you that the likelihood
+surface is fragile under mild perturbation of the data, and the surviving
+replicates are then a selected sample rather than a random one, so the
+resulting intervals are optimistic. The function stops outright if fewer
+than two replicates survive.
+}
+
+\section{What the output means}{
+
+With \eqn{\hat\theta^{(r)}} the coefficient vector from replicate \eqn{r} and
+\eqn{B} the number that converged, the reported covariance is the ordinary
+sample covariance of the surviving replicates,
+
+\deqn{\widehat{V} = \frac{1}{B - 1} \sum_{r} \left(\hat\theta^{(r)} -
+      \bar{\theta}^{*}\right) \left(\hat\theta^{(r)} -
+      \bar{\theta}^{*}\right)^{\top},}
+
+with \eqn{\bar\theta^{*}} the mean over surviving replicates; \code{se} is the
+square root of its diagonal. The percentile interval for coefficient \eqn{j}
+is the pair of empirical quantiles of \eqn{\hat\theta_j^{(r)}} at 0.025 and
+0.975, which is the basic percentile method and is not corrected for bias or
+acceleration.
+
+Note that \code{estimate} is the coefficient vector of the \emph{original} fit, not
+the mean of the replicates. The difference between the two estimates the
+bootstrap bias, and a percentile interval that sits noticeably off-centre
+from \code{estimate} is a sign that the sampling distribution is skewed and that
+the symmetric Wald interval is the wrong shape.
+}
+
+\examples{
+set.seed(11)
+n  <- 400
+x  <- runif(n, -2, 2)
+mu <- plogis(0.4 + 1.1 * x)
+y  <- gkwdist::rkw(n, alpha = 2, beta = log1p(-0.9) / log1p(-mu^2))
+d  <- data.frame(y = y, x = x)
+
+fit <- gkwqreg(y ~ x, data = d, tau = 0.9, family = "kw")
+
+\donttest{
+## The default: resample observations. No distributional assumption is
+## re-imposed, so this is the version that can disagree with the model-based
+## standard errors when the family is wrong.
+bp <- gkwq_boot(fit, R = 200, seed = 1)
+bp
+##                   Estimate Boot SE   2.5\%  97.5\%
+## mu:(Intercept)      0.3972  0.0586 0.2763 0.5127
+## mu:x                1.0582  0.0496 0.9694 1.1681
+## alpha:(Intercept)   0.6960  0.0416 0.6192 0.7897
+
+## The parametric alternative, for comparison only. Its replicates are drawn
+## from the fitted Kumaraswamy laws themselves, so it assumes precisely what
+## a specification check would want to test.
+bq <- gkwq_boot(fit, R = 200, type = "parametric", seed = 1)
+
+## Here the family is in fact correct -- the data were generated from it --
+## so all three sets of standard errors agree closely. That agreement is
+## itself the evidence: under misspecification it is the pairs column that
+## remains trustworthy.
+round(cbind(wald       = sqrt(diag(vcov(fit))),
+            pairs      = bp$se,
+            parametric = bq$se), 4)
+##                     wald  pairs parametric
+## mu:(Intercept)    0.0603 0.0586     0.0567
+## mu:x              0.0505 0.0496     0.0466
+## alpha:(Intercept) 0.0470 0.0416     0.0479
+
+## Every replicate converged, so nothing was silently discarded.
+c(requested = bp$R, converged = bp$n_ok)
+## requested converged
+##       200       200
+}
+
+}
+\seealso{
+\code{\link[=simulate.gkwqreg]{simulate.gkwqreg()}} for the draws behind \code{type = "parametric"};
+\code{\link[=vcov.gkwqreg]{vcov.gkwqreg()}} and \code{\link[=confint.gkwqreg]{confint.gkwqreg()}} for the model-based alternatives;
+\code{\link[=gkwq_control]{gkwq_control()}} for the optimizer settings that govern each refit.
 }

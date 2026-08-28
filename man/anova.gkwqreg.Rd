@@ -9,13 +9,207 @@
 \arguments{
 \item{object}{A \code{"gkwqreg"} fit.}
 
-\item{...}{Further \code{"gkwqreg"} fits, at the same quantile level and anchor.}
+\item{...}{One or more further \code{"gkwqreg"} fits. Every fit must use the same
+quantile level \code{tau}, the same anchor, and the same number of observations;
+the section \emph{What this method refuses} explains why each requirement is
+enforced rather than merely advised. The order of the arguments does not
+matter: the fits are sorted internally by number of estimated coefficients.}
 }
 \value{
-A data frame of class \code{"anova.gkwqreg"}.
+A data frame of class \code{"anova.gkwqreg"}, inheriting from \code{"anova"} and
+\code{"data.frame"}, with one row per fit sorted by increasing \code{Df} and a
+\code{"heading"} attribute recording the common \code{tau} and anchor. Its columns are
+\describe{
+\item{\code{family}}{the family of the fit in that row.}
+\item{\code{Df}}{\eqn{p}, the number of estimated coefficients.}
+\item{\code{logLik}}{\eqn{\ell(\hat\theta)}, the maximized log-likelihood.}
+\item{\code{AIC}}{\eqn{-2\ell(\hat\theta) + 2p}.}
+\item{\code{Chisq}}{the likelihood-ratio statistic against the row above; \code{NA}
+in the first row.}
+\item{\verb{Chi Df}}{the difference in \code{Df} against the row above; \code{NA} in the
+first row.}
+\item{\verb{Pr(>Chisq)}}{the upper-tail chi-squared probability; \code{NA} in the
+first row and wherever \verb{Chi Df} is not positive.}
+}
+The \code{print()} method formats the table through \code{\link[stats:printCoefmat]{stats::printCoefmat()}} and
+prepends the heading.
 }
 \description{
-The seven families form a genuine nesting (\code{kw} inside \code{ekw} inside \code{gkw},
-and so on), so family selection is an ordinary likelihood-ratio test rather
-than the Vuong test that non-nested collections require.
+Compares two or more fitted quantile regressions that stand in a nesting
+relation, by the classical likelihood-ratio test, and tabulates the result in
+the idiom of \code{\link[stats:anova]{stats::anova()}}. Because the seven Generalized Kumaraswamy
+families are genuine parameter restrictions of one another, choosing among
+them is here an ordinary hypothesis test. It does not require the Vuong
+machinery that a collection of mutually non-nested families would force upon
+it, and which packages built on such a collection have no way to avoid.
+}
+\details{
+Write \eqn{\ell(\hat\theta)} for the maximized log-likelihood of a fit and
+\eqn{p} for its number of estimated coefficients, reported in the \code{Df}
+column. The anchored parameter is not counted in \eqn{p}: it is computed from
+the conditional quantile by the anchor solve, not estimated.
+
+For a model \eqn{M_0} nested inside a model \eqn{M_1}, with
+\eqn{p_0 < p_1}, the statistic reported in the \code{Chisq} column is
+
+\deqn{LR = 2 \left\{ \ell_1(\hat\theta_1) - \ell_0(\hat\theta_0) \right\},}
+
+whose null distribution, under \eqn{M_0} and the usual regularity
+conditions, is asymptotically chi-squared on \eqn{p_1 - p_0} degrees of
+freedom. The columns \verb{Chi Df} and \verb{Pr(>Chisq)} hold \eqn{p_1 - p_0} and the
+upper-tail probability \eqn{\Pr(\chi^2_{p_1 - p_0} > LR)}. The \code{AIC} column
+reports \eqn{-2\ell(\hat\theta) + 2p} for each row; unlike the test itself,
+it is comparable down the whole table and requires no nesting.
+
+With more than two fits the table is \strong{sequential}: after sorting by
+dimension, each row is tested against the row immediately above it, never
+against the first row. Nothing verifies that consecutive rows really are
+nested; that remains the analyst's judgement, and the map in the next section
+is the guide.
+}
+\section{The families are genuinely nested}{
+
+Every family is the five-parameter \code{gkw} distribution with some of its
+parameters held at neutral values, so each is a restriction of the ones
+above it in the lattice.\tabular{lll}{
+   family \tab free parameters \tab held fixed \cr
+   \code{"gkw"} \tab \code{alpha}, \code{beta}, \code{gamma}, \code{delta}, \code{lambda} \tab none \cr
+   \code{"bkw"} \tab \code{alpha}, \code{beta}, \code{gamma}, \code{delta} \tab \eqn{\lambda = 1} \cr
+   \code{"kkw"} \tab \code{alpha}, \code{beta}, \code{delta}, \code{lambda} \tab \eqn{\gamma = 1} \cr
+   \code{"ekw"} \tab \code{alpha}, \code{beta}, \code{lambda} \tab \eqn{\gamma = 1}, \eqn{\delta = 0} \cr
+   \code{"kw"} \tab \code{alpha}, \code{beta} \tab \eqn{\gamma = 1}, \eqn{\delta = 0}, \eqn{\lambda = 1} \cr
+   \code{"mc"} \tab \code{gamma}, \code{delta}, \code{lambda} \tab \eqn{\alpha = \beta = 1} \cr
+   \code{"beta"} \tab \code{gamma}, \code{delta} \tab \eqn{\alpha = \beta = \lambda = 1} \cr
+}
+
+
+The restrictions compose into chains, and it is along a chain that this
+method is valid:
+\enumerate{
+\item \code{"kw"} is \code{"ekw"} with \eqn{\lambda = 1}; \code{"ekw"} is \code{"kkw"} with
+\eqn{\delta = 0}; \code{"kkw"} is \code{"gkw"} with \eqn{\gamma = 1}.
+\item \code{"kw"} is also \code{"bkw"} with \eqn{\gamma = 1} and \eqn{\delta = 0}, and
+\code{"bkw"} is \code{"gkw"} with \eqn{\lambda = 1}.
+\item \code{"beta"} is \code{"mc"} with \eqn{\lambda = 1}, and \code{"mc"} is \code{"gkw"} with
+\eqn{\alpha = \beta = 1}; \code{"beta"} is likewise \code{"bkw"} with
+\eqn{\alpha = \beta = 1}.
+}
+
+The reparametrization does not disturb any of this. The anchor solve
+eliminates the same parameter from both members of a pair, so a restriction
+on the original family is a restriction on the anchored one and \eqn{LR} is
+the same quantity it always was.
+
+Two consequences are worth stating. First, a larger family cannot attain a
+smaller maximum log-likelihood than a family nested inside it, so the
+\code{logLik} column is non-decreasing down the table as a matter of mathematics,
+not of luck; the package's test suite checks that invariant. A \code{logLik} that
+\emph{falls} as \code{Df} rises is therefore not evidence about the data but evidence
+that one of the fits has not reached its maximum, and the offending fit
+should be refitted or discarded. Second, not every pair of families is
+nested: \code{"kw"} and \code{"mc"}, for instance, restrict disjoint sets of
+parameters and neither contains the other. Such a pair belongs to
+\code{\link[=vuong_test]{vuong_test()}} or \code{\link[=compare_families]{compare_families()}}, not here.
+
+A practical corollary of the anchor guard is that \code{"mc"} admits only the
+\code{lambda} anchor and \code{"beta"} only the \code{gamma} anchor, whereas every
+Kumaraswamy member defaults to \code{beta}. Those two families therefore cannot
+reach this method in company with a Kumaraswamy member at all, even where
+the nesting exists on paper.
+}
+
+\section{A caution at the boundary}{
+
+The restriction \eqn{\delta = 0} -- the step from \code{"kkw"} down to \code{"ekw"}, or
+from \code{"bkw"} down to \code{"kw"} -- lies on the boundary of the parameter space:
+under the default log link \eqn{\delta} is strictly positive and reaches zero
+only in the limit. For such a restriction the null distribution of \eqn{LR}
+is not chi-squared on one degree of freedom but a mixture with an atom at
+zero (Chernoff 1954; Self and Liang 1987), so the p-value reported here is
+conservative and errs towards keeping the smaller model. Its signature in
+practice is an \eqn{LR} of essentially zero with a p-value close to one, as
+in the third row of the example below. Restrictions setting \eqn{\gamma} or
+\eqn{\lambda} to 1 are interior and need no such caveat.
+}
+
+\section{What this method refuses, and why}{
+
+Two comparisons raise an error instead of returning a number. Both refusals
+are deliberate, and in both cases the arithmetic would have produced a
+perfectly presentable statistic that means nothing.
+
+\strong{Fits at different quantile levels.} The level \code{tau} indexes the question
+being asked, not the model: it never enters the parameter vector, and the
+profile likelihood in \code{tau} is exactly flat. Each level therefore defines its
+own likelihood, and two likelihoods for two different questions are not
+comparable at all -- neither nested, nor non-nested, but incommensurable. A
+difference of log-likelihoods between a \code{tau = 0.5} fit and a \code{tau = 0.9} fit
+is a difference between the fit of one model to one target and another model
+to another target. Note that a generic likelihood-ratio routine written for
+other model classes has no way to know this and will happily report a
+significant result; see \code{\link[=lrtest]{lrtest()}}.
+
+\strong{Fits with different anchors.} Two anchors on the same data give
+\emph{non-nested models of equal dimension}. Neither is a restriction of the
+other, so no null hypothesis relates them; and \eqn{p_1 - p_0 = 0} leaves no
+degrees of freedom against which to refer a statistic. The difference in
+log-likelihood between them can nonetheless be substantial, because the
+anchor is a modeling choice and not a relabelling whenever the nuisance
+parameters are unsaturated (see \code{\link[=gkwqreg]{gkwqreg()}}). The correct instrument is
+\code{\link[=vuong_test]{vuong_test()}}, which is built for models of equal dimension that do not
+nest; AIC and BIC are also legitimate.
+
+A third case is warned about rather than refused. If two fits of \emph{equal}
+dimension reach the test by some other route -- same family, same anchor,
+same level, but different covariates of the same count -- a warning is issued
+and the corresponding \code{Chisq} and \verb{Pr(>Chisq)} entries are \code{NA}.
+}
+
+\examples{
+## A response generated from an EKW distribution: the true lambda is 4, so
+## the two-parameter Kumaraswamy family is genuinely wrong, and its larger
+## relatives are genuinely right.
+set.seed(2026)
+n  <- 500
+x  <- runif(n, -2, 2)
+mu <- plogis(0.3 + 1.2 * x)          # the true conditional median
+b  <- log1p(-0.5^(1 / 4)) / log1p(-mu^2)   # the beta anchor solve at tau = 0.5
+y  <- gkwdist::rekw(n, alpha = 2, beta = b, lambda = 4)
+d  <- data.frame(y = y, x = x)
+
+m_kw  <- gkwqreg(y ~ x, data = d, tau = 0.5, family = "kw")
+m_ekw <- gkwqreg(y ~ x, data = d, tau = 0.5, family = "ekw")
+m_kkw <- gkwqreg(y ~ x, data = d, tau = 0.5, family = "kkw")
+
+## The chain kw inside ekw inside kkw, tested one step at a time.
+anova(m_kw, m_ekw, m_kkw)
+##      Df logLik     AIC   Chisq Chi Df Pr(>Chisq)
+## [1,]  3 482.58 -959.16
+## [2,]  4 496.90 -985.80 28.6406      1  8.713e-08
+## [3,]  5 496.91 -983.81  0.0093      1      0.923
+##
+## Row 2 tests lambda = 1, that is kw inside ekw, and rejects it decisively:
+## the extra shape parameter is real, exactly as the simulation was built.
+## Row 3 tests delta = 0, that is ekw inside kkw, and finds nothing -- note
+## the statistic of essentially zero, the boundary signature discussed above.
+## Note also that logLik never falls as Df rises, as the nesting requires.
+
+## The refusals. Neither of these returns a number.
+m_tau9 <- gkwqreg(y ~ x, data = d, tau = 0.9, family = "kw")
+try(anova(m_kw, m_tau9))       # different levels: separate likelihoods
+
+m_alpha <- gkwqreg(y ~ x, data = d, tau = 0.5, family = "kw",
+                   anchor = "alpha")
+try(anova(m_kw, m_alpha))      # different anchors: non-nested, equal dimension
+
+## The comparison anova() refused is exactly the one vuong_test() makes.
+vuong_test(m_kw, m_alpha)
+##   z = 7.642, p-value = 2.137e-14 -- model 1, the beta anchor, is favoured.
+
+}
+\seealso{
+\code{\link[=lrtest]{lrtest()}} for the same test under the name \code{lmtest} users expect;
+\code{\link[=vuong_test]{vuong_test()}} for non-nested comparisons, including two anchors;
+\code{\link[=compare_families]{compare_families()}} to sweep every family at once; \code{\link[=gkwqreg]{gkwqreg()}} for what
+the anchor is and why it is a modeling argument.
 }

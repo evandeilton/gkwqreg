@@ -10,36 +10,158 @@ check_crossing(object, newdata = NULL, taus = NULL, tol = 0, ...)
 qcrossing(object, newdata = NULL, taus = NULL, tol = 0, ...)
 }
 \arguments{
-\item{object}{A \code{"gkwqregs"} container, a list of \code{"gkwqreg"} fits, or a
-single \code{"gkwqreg"} fit.}
+\item{object}{One of three things, and the answer means something different in
+each case (see Details). A \code{"gkwqregs"} container returned by \code{\link[=gkwqreg]{gkwqreg()}}
+with a vector \code{tau}; a plain list of \code{"gkwqreg"} fits, which is sorted by
+level before checking; or a single \code{"gkwqreg"} fit, whose implied quantiles
+are read off its one fitted conditional distribution.}
 
-\item{newdata}{Optional data to evaluate the quantiles on.}
+\item{newdata}{Optional data frame on which to evaluate the quantiles. It must
+supply every covariate used by any part of the model. Extrapolating beyond
+the observed covariate range is legitimate here and often revealing: see the
+examples.}
 
-\item{taus}{For a single fit, the levels to read off the fitted distribution.}
+\item{taus}{Used only when \code{object} is a single fit: the levels at which to
+read the fitted distribution. Defaults to \code{seq(0.05, 0.95, by = 0.05)}.
+Ignored for a container or a list of fits, whose levels are already fixed by
+the fits themselves.}
 
-\item{tol}{Tolerance below which a decrease is not counted as a crossing.}
+\item{tol}{Non-negative numeric tolerance. A decrease between adjacent levels
+counts as a crossing only if it exceeds \code{tol} in absolute value. The default
+\code{0} flags any decrease at all; a small positive value (say \code{1e-8}) is
+appropriate if you wish to ignore decreases attributable to floating-point
+arithmetic rather than to the fit.}
 
-\item{...}{Unused.}
+\item{...}{Currently unused, accepted so that the alias and future methods keep
+a stable signature.}
 }
 \value{
-An object of class \code{"gkwq_crossing"}.
+An object of class \code{"gkwq_crossing"}, a list with components
+\describe{
+\item{\code{taus}}{Numeric vector of the levels checked, in increasing order.}
+\item{\code{Q}}{The \eqn{n \times m}{n x m} matrix of fitted quantiles, rows in
+the order of the evaluation data and columns named by level.}
+\item{\code{mode}}{\code{"separate"} for independently fitted levels, \code{"implied"} for
+the levels of one fitted distribution.}
+\item{\code{n_crossing}}{Number of rows containing at least one crossing.}
+\item{\code{frac}}{\code{n_crossing} divided by the number of rows.}
+\item{\code{which}}{Integer row indices of the offending rows, so that the
+covariate values responsible can be inspected.}
+\item{\code{worst}}{Largest decrease observed, on the scale of the response;
+\code{0} when there is none. Useful for deciding whether a crossing is a
+substantive defect or numerical dust.}
+\item{\code{pairs}}{Data frame with one row per adjacent pair of levels, giving
+\code{tau_lo}, \code{tau_hi} and the count \code{n} of rows violated by that pair.}
+}
+A \code{print} method summarises the check and states which of the two questions
+was answered.
 }
 \description{
-Detect quantile crossing
+Checks whether a set of fitted conditional quantiles is monotone in the
+quantile level, row by row. A quantile function must be non-decreasing in
+\eqn{\tau}{tau}; an estimate need not be, and where it is not the fitted object
+is not a conditional distribution at all. \code{qcrossing()} is an alias.
 }
 \details{
-There are two genuinely different questions here.
+Let \eqn{\hat{Q}_{ij}}{Qhat_ij} be the fitted quantile for row \eqn{i} at the
+\eqn{j}th level of an increasing grid
+\eqn{\tau_1 < \cdots < \tau_m}{tau_1 < ... < tau_m}. The function forms the
+adjacent differences
+\eqn{D_{ij} = \hat{Q}_{i,j+1} - \hat{Q}_{ij}}{D_ij = Qhat_i,j+1 - Qhat_ij} and
+records a crossing at \eqn{(i,j)}{(i,j)} whenever
+\eqn{D_{ij} < -\texttt{tol}}{D_ij < -tol}. A row is counted once, however many
+of its adjacent pairs are violated, so \code{n_crossing} and \code{frac} describe
+\emph{observations affected}, while \code{pairs} localises the damage in \eqn{\tau}{tau}.
+}
+\section{Two genuinely different questions}{
 
-Across \strong{independently fitted} levels, nothing forces the fitted quantiles to
-increase with \code{tau}, and crossing is the classic failure of per-level quantile
-regression. That is what this reports for a \code{"gkwqregs"} container.
+The word "crossing" covers two situations that this function deliberately
+treats together and reports separately.
 
-Within a \strong{single} fit, the quantiles read off one fitted distribution cannot
-cross: they are quantiles of a proper distribution function. Reporting zero
-crossings there is not vacuous, it is the argument for parametric quantile
-regression over the check-function kind, and the printed output says so.
+\strong{Across independently fitted levels} (\code{mode = "separate"}). Each level is a
+separate optimisation with its own likelihood and its own coefficient vector.
+Nothing in the estimation ties them together, so nothing forces
+\eqn{\hat{Q}_\tau(x)}{Qhat_tau(x)} to increase with \eqn{\tau}{tau} at any
+particular \eqn{x}{x}. This is the classic and well-documented failure of
+per-level quantile regression, and it is what the check reports for a
+\code{"gkwqregs"} container or a list of fits. It typically bites where the fitted
+lines are least constrained: in sparse regions of the covariate space, near
+the extreme levels, and above all under extrapolation.
+
+\strong{Within a single fit} (\code{mode = "implied"}). Here the quantiles at every level
+are read off one fitted conditional distribution function, through
+\eqn{\hat{Q}(\tau \mid x) = F^{-1}(\tau \mid x)}{Qhat(tau | x) = Finv(tau | x)}
+with a single parameter vector. Because \eqn{F(\cdot \mid x)}{F(. | x)} is a
+proper distribution function, its inverse is non-decreasing by construction and
+crossing is arithmetically impossible.
+
+Reporting zero crossings in the second case is therefore not a vacuous
+tautology dressed up as a result. It is precisely the argument for parametric
+quantile regression over the check-function kind: the guarantee holds at every
+covariate value, in sample and out, at every level, without any post-hoc repair.
+The printed output says so explicitly rather than letting a reader mistake it
+for good luck. Verified in this package, ten levels on the same data: \code{0} of
+the rows cross within a single \code{gkwqreg} fit, against \code{4.3} percent of rows for
+\code{quantreg::rq} fitted level by level.
+
+The price of the guarantee is that it is bought with a distributional
+assumption. Under misspecification the single fitted distribution can be
+monotone and wrong, whereas independently fitted levels remain consistent for
+each quantile separately. Monotonicity is a property worth having, not a
+certificate of correctness; check it alongside \code{\link[=plot.gkwqreg]{plot.gkwqreg()}} panel 5 and
+\code{\link[=pinball]{pinball()}}, not instead of them.
+}
+
+\examples{
+set.seed(1)
+n <- 120
+x <- runif(n, -1, 1)
+mu <- plogis(0.2 + 1.2 * x)
+y <- rbeta(n, 4 * mu, 4 * (1 - mu))
+d <- data.frame(y = y, x = x)
+
+## (a) ONE fit, nineteen levels read off its fitted distribution.
+fit <- gkwqreg(y ~ x, data = d, tau = 0.5, family = "kw")
+check_crossing(fit, taus = seq(0.05, 0.95, by = 0.05))
+#>   rows with a crossing: 0 of 120 (0.00\%)
+## Zero, and it could not have been anything else.
+
+## (b) NINETEEN independent fits, one per level, shape modelled too.
+fits <- gkwqreg(y ~ x | x, data = d, tau = seq(0.05, 0.95, by = 0.05),
+                family = "kw")
+check_crossing(fits)
+#>   rows with a crossing: 0 of 120 (0.00\%)
+## None in sample -- but that is an empirical fact about these 120 rows,
+## not a guarantee. Evaluate the same fits where the data do not constrain
+## them and the guarantee's absence becomes visible:
+
+grid <- data.frame(x = seq(-3, 3, length.out = 201))
+cr <- check_crossing(fits, newdata = grid)
+cr
+#>   rows with a crossing: 44 of 201 (21.89\%)
+#>   worst violation     : 6.146e-03
+
+## Where, in tau: the upper levels, which are the least well determined.
+cr$pairs[cr$pairs$n > 0, ]
+#>      tau_lo tau_hi  n
+#> 0.65   0.60   0.65  2
+#> 0.70   0.65   0.70 11
+#> ...
+#> 0.95   0.90   0.95 44
+
+## Where, in x: entirely outside the observed range of the covariate.
+range(grid$x[cr$which])   # -3.00 -1.71
+range(d$x)                # -0.97  0.99
+
+## The same nineteen levels taken from the single fit stay monotone there.
+check_crossing(fit, newdata = grid, taus = seq(0.05, 0.95, by = 0.05))$n_crossing
+#> 0
 }
 \references{
 Chernozhukov, V., Fernandez-Val, I. and Galichon, A. (2010). Quantile and
 probability curves without crossing. \emph{Econometrica} \strong{78}, 1093-1125.
+}
+\seealso{
+\code{\link[=rearrange]{rearrange()}} for the post-hoc monotonicity fix; \code{\link[=predict.gkwqreg]{predict.gkwqreg()}}
+with a \code{tau} argument for reading other levels off one fitted distribution.
 }

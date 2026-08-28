@@ -20,3 +20,30 @@ bibentry(
   doi      = "10.1007/s00362-011-0417-y",
   header   = "The two-parameter case implemented here is due to:"
 )
+
+bibentry(
+  bibtype      = "Misc",
+  title        = "A New Generalized {K}umaraswamy Distribution",
+  author       = c(person("Jalmar M. F.", "Carrasco"),
+                   person("Silvia L. P.", "Ferrari"),
+                   person("Gauss M.", "Cordeiro")),
+  year         = "2010",
+  howpublished = "arXiv preprint arXiv:1004.0911",
+  doi          = "10.48550/arXiv.1004.0911",
+  header       = "For the distribution itself:"
+)
+
+bibentry(
+  bibtype  = "Article",
+  title    = "{TMB}: Automatic Differentiation and {L}aplace Approximation",
+  author   = c(person("Kasper", "Kristensen"), person("Anders", "Nielsen"),
+               person("Casper W.", "Berg"), person("Hans", "Skaug"),
+               person("Bradley M.", "Bell")),
+  journal  = "Journal of Statistical Software",
+  year     = "2016",
+  volume   = "70",
+  number   = "5",
+  pages    = "1--21",
+  doi      = "10.18637/jss.v070.i05",
+  header   = "Estimation is carried out with TMB:"
+)

@@ -186,7 +186,15 @@ the precision submodels; here the quantity is modelled directly.
 
 - Koenker and Bassett (1978). Regression quantiles. *Econometrica* **46**, 33–50.
 - Mitnik and Baek (2013). *Statistical Papers* **54**, 177–192.
-- Mazucheli, Alves, Menezes and Leiva (2022). `unitquantreg`. *CMPB* **221**, 106816.
-- Ferrari and Cribari-Neto (2004). Beta regression for modelling rates and proportions.
-- Chernozhukov, Fernández-Val and Galichon (2010). Quantile and probability curves
-  without crossing.
+- Menezes, A. F. B. and Mazucheli, J. `unitquantreg`: Parametric Quantile Regression
+  Models for Bounded Data. R package. \doi{10.32614/CRAN.package.unitquantreg}
+  (the package has no journal of record)
+- Mazucheli, J., Alves, B., Menezes, A. F. B. and Leiva, V. (2022). An overview on
+  parametric quantile regression models and their computational implementation with
+  applications to biomedical problems including COVID-19 data. *Computer Methods and
+  Programs in Biomedicine* **221**, 106816. \doi{10.1016/j.cmpb.2022.106816}
+- Ferrari, S. L. P. and Cribari-Neto, F. (2004). Beta regression for modelling rates
+  and proportions. *Journal of Applied Statistics* **31**(7), 799-815.
+  \doi{10.1080/0266476042000214501}
+- Chernozhukov, V., Fernández-Val, I. and Galichon, A. (2010). Quantile and probability
+  curves without crossing. *Econometrica* **78**(3), 1093-1125. \doi{10.3982/ECTA7880}

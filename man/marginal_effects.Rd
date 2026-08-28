@@ -10,37 +10,203 @@ marginal_effects(
   at = c("ame", "mem", "observed"),
   newdata = NULL,
   level = 0.95,
+  vcov. = NULL,
   ...
 )
 }
 \arguments{
-\item{object}{A \code{"gkwqreg"} fit.}
+\item{object}{A \code{"gkwqreg"} fit, as returned by \code{\link[=gkwqreg]{gkwqreg()}}.}
 
-\item{variables}{Covariates to report; defaults to all in the quantile part.}
+\item{variables}{Character vector naming the covariates to report, using the
+coefficient names of the quantile part (\code{"x1"}, \code{"x21"} for the second
+level of a factor \code{x2}, and so on). Defaults to every non-intercept
+covariate in the quantile part. Names not present are dropped silently;
+if nothing remains the function errors.}
 
-\item{at}{\code{"ame"} averages the effect over the sample, \code{"mem"} evaluates it at
-the covariate means, \code{"observed"} returns the full vector per covariate.}
+\item{at}{Where to evaluate the derivative: \code{"ame"} averages it over the
+rows, \code{"mem"} evaluates it at the average linear predictor, and
+\code{"observed"} returns the untouched per-row vector for each covariate. See
+the table below.}
 
-\item{newdata}{Optional data to evaluate at.}
+\item{newdata}{Optional data frame over which to average, defaulting to the
+estimation data. Useful for reporting the effect for a subpopulation, or
+for a counterfactual covariate distribution, without refitting.}
 
-\item{level}{Confidence level for the delta-method interval.}
+\item{level}{Confidence level for the reported interval. The interval is
+Wald on the effect scale, \code{estimate} \eqn{\pm} \code{z * std.error}, and is
+ignored when \code{at = "observed"}.}
 
-\item{...}{Unused.}
+\item{vcov.}{Optional covariance matrix for the full stacked coefficient
+vector, dimensioned and named as \code{vcov(object)}. Typical choices are
+\code{vcov(object, type = "sandwich")} or a clustered matrix such as
+\code{sandwich::vcovCL()}. When \code{NULL} the model-based \code{vcov(object)} is used,
+and if that is unavailable the standard errors come back as \code{NA} rather
+than the function failing.}
+
+\item{...}{Currently unused.}
 }
 \value{
-An object of class \code{"gkwq_meff"}.
+For \code{at = "ame"} or \code{"mem"}, an object of class \code{"gkwq_meff"}: a list with
+components \code{table} (a data frame with one row per covariate and columns
+\code{variable}, \code{effect}, \code{std.error}, \code{lower}, \code{upper}), \code{at}, \code{tau}, \code{level},
+\code{link}, and \code{overlap} (the covariates that also enter a nuisance part). It
+has a \code{print} method; extract \code{x$table} for further computation.
+
+For \code{at = "observed"}, an object of class \code{"gkwq_meff_observed"}: a list with
+components \code{effects} (an \code{n} by \code{length(variables)} numeric matrix of
+per-row derivatives, columns named after the covariates), \code{at} and \code{tau}.
+There is no print method for this class; use \code{x$effects} directly.
 }
 \description{
-The coefficients of the conditional quantile are effects on the log quantile
-odds, which is the single most likely thing for a reader to misinterpret as a
-mean effect. This reports the effect on the quantile itself,
-\code{dQ(tau|x)/dx_j = beta_j * dmu/deta}, which under the logit link is
-\code{beta_j * mu * (1 - mu)}.
+Translates the coefficients of the conditional quantile, which are effects on
+the \emph{log quantile odds}, into effects on the quantile itself, with delta-method
+standard errors and confidence intervals.
 }
 \details{
-If a covariate also appears in a nuisance part, the effect on the quantile is
-still exactly the expression above: \code{mu} \emph{is} the quantile, so the nuisance
-part changes the spread of the conditional distribution, not the quantile
-being modelled. That is a genuine convenience of this parametrization, and
-the printed output says so when it detects the overlap.
+Under the default logit link the quantile part of the model is
+\deqn{\log \frac{\mu_\tau(x)}{1 - \mu_\tau(x)} \;=\; x^{\top}\beta_\mu ,}
+so \eqn{\exp(\beta_j)} is the multiplicative effect of a one-unit increase in
+\eqn{x_j} on the \strong{quantile odds} \eqn{\mu_\tau/(1-\mu_\tau)}. It is \emph{not}
+the odds ratio of an event, and it is \emph{not} an effect on a mean. Reported on
+its own it is close to uninterpretable, because a fixed multiplicative change
+in the odds displaces the quantile by an amount that depends entirely on
+where that quantile already sits.
+
+What is interpretable on the scale of the response is the derivative
+\deqn{\frac{\partial Q(\tau \mid x)}{\partial x_j}
+  \;=\; \beta_j \, \frac{d\mu}{d\eta}
+  \;=\; \beta_j \, \mu_\tau (1 - \mu_\tau) \quad \text{(logit)},}
+which is what this function reports. For links other than the logit the
+factor \eqn{d\mu/d\eta} changes accordingly and everything else is unaltered.
+
+For a factor the derivative is still the quantity reported, evaluated at the
+dummy column: it is the \emph{marginal} effect of that indicator on the quantile,
+which for a binary regressor is an accurate local approximation to the
+discrete contrast rather than the contrast itself.
+}
+\section{Where the effect is evaluated}{
+\tabular{lll}{
+   \code{at} \tab What is reported \tab Shape \cr
+   \code{"ame"} (default) \tab average marginal effect: the derivative averaged over the rows \tab one number per covariate, with a standard error \cr
+   \code{"mem"} \tab marginal effect at the mean: the derivative evaluated at the average linear predictor \tab one number per covariate, with a standard error \cr
+   \code{"observed"} \tab the whole vector of per-row derivatives \tab an \code{n} by \code{p} matrix, no standard errors \cr
+}
+
+
+\code{"ame"} is the default because it answers the question actually being asked
+of a bounded response: how much does the quantile move, on average over the
+population at hand? \code{"mem"} is cheaper to explain but describes a unit whose
+covariates are all at their mean, which need not resemble anybody.
+\code{"observed"} is the raw material for a plot of how the effect varies across
+the covariate space; its column means reproduce the \code{"ame"} estimates exactly.
+}
+
+\section{How the standard errors are obtained}{
+
+For \code{at = "ame"} the reported effect is
+\deqn{\widehat{\mathrm{AME}}_j(\beta) \;=\; \beta_j \cdot
+  \frac{1}{n}\sum_{i=1}^{n} g'\!\left(x_i^{\top}\beta_\mu + o_i\right),}
+and for \code{at = "mem"} the same expression with the averaging done inside,
+\eqn{g'(\bar\eta)}. \strong{Both} factors are functions of the coefficient
+vector: the slope \eqn{\beta_j} directly, and the averaged derivative through
+\eqn{\eta = X\beta_\mu}. The standard error is therefore the exact delta
+method taken over the whole stacked coefficient vector,
+\deqn{\widehat{\mathrm{Var}}\big(\widehat{\mathrm{AME}}\big) \;=\;
+  J \, V \, J^{\top}, \qquad
+  J \;=\; \partial\,\widehat{\mathrm{AME}} / \partial\beta^{\top},}
+with \eqn{J} evaluated numerically by \code{\link[numDeriv:jacobian]{numDeriv::jacobian()}} and \eqn{V}
+taken from \code{vcov.} when supplied and from \code{vcov(object)} otherwise.
+
+Freezing \eqn{g'(\eta)} at its sample average and differentiating only
+\eqn{\beta_j} -- the obvious shortcut, which yields
+\eqn{\mathrm{s.e.}(\beta_j) \times \overline{g'}} -- is not the delta method.
+It discards the second term, which partially cancels the first: raising
+\eqn{\beta_j} spreads \eqn{\eta}, and a more spread \eqn{\eta} has a smaller
+\eqn{\overline{g'}} once it is away from the mode of the link derivative. The
+shortcut consequently \emph{overstates} the standard error, badly for a strong
+covariate; the examples show the discrepancy on a fit where it is a factor of
+about 1.6.
+
+Whether the interval deserves to be believed is a separate question from
+whether it is computed correctly. Pass \code{vcov. = vcov(object, type = "sandwich")} if the conditional distribution may be misspecified, or a
+clustered covariance matrix if the data are grouped; the delta method is
+applied to whatever matrix is supplied.
+}
+
+\section{Covariates that also enter a nuisance part}{
+
+If \eqn{x_j} also appears in the equation for one of the remaining
+parameters, the effect on the quantile is still exactly
+\eqn{\beta_j \, d\mu/d\eta}, with no extra term. This is a genuine
+convenience of the parametrization rather than an approximation:
+\eqn{\mu_\tau} \emph{is} the \eqn{\tau}-quantile, so a nuisance part alters the
+spread and shape of the conditional distribution while leaving the quantile
+being modelled untouched. The print method says so when it detects the
+overlap. Note that this is a statement about the \eqn{\tau}-quantile only:
+the same covariate does move \emph{other} quantiles through the nuisance part.
+}
+
+\examples{
+## Same simulated design as predict.gkwqreg(): a conditional median that
+## follows a logit model, drawn by inverse transform.
+set.seed(2024)
+n   <- 300
+x1  <- runif(n, -2, 2)
+x2  <- rbinom(n, 1, 0.5)
+mu  <- plogis(0.3 + 0.9 * x1 - 0.5 * x2)
+bt  <- log1p(-0.5) / log1p(-mu^2)
+y   <- gkwq_quantile(runif(n), alpha = 2, beta = bt)
+dat <- data.frame(y = y, x1 = x1, x2 = factor(x2))
+
+fit <- gkwqreg(y ~ x1 + x2 | x1, data = dat, tau = 0.5, family = "kw")
+
+## -- what the coefficient says, and what it does NOT say -----------------
+exp(coef(fit, part = "mu"))
+## x1 -> 2.3580.  A one-unit rise in x1 multiplies the odds of the median,
+## m/(1-m), by 2.36.  That is not an event odds ratio and not a mean effect.
+
+me <- marginal_effects(fit)
+me
+## x1  effect  0.16834  (s.e. 0.005758)
+## x21 effect -0.10233  (s.e. 0.017803)
+## A one-unit rise in x1 lifts the conditional MEDIAN by 0.168 on average,
+## on the (0,1) scale of the response.  The factor-2.36 odds statement and
+## the 0.168 response-scale statement describe the same coefficient.
+
+## -- the two are linked by the chain rule --------------------------------
+b   <- coef(fit)[["mu:x1"]]
+muh <- fitted(fit)                       # fitted conditional medians
+b * mean(muh * (1 - muh))                # 0.1683372
+me$table$effect[me$table$variable == "x1"]   # identical
+
+## -- the effect is not constant across the covariate space ---------------
+obs <- marginal_effects(fit, at = "observed")
+range(obs$effects[, "x1"])               # 0.0901 to 0.2144
+colMeans(obs$effects)                    # reproduces the AME exactly
+## The AME is an average of effects that differ by more than twofold across
+## the sample, which is precisely why the odds-scale coefficient is constant
+## and the response-scale effect is not.
+
+## -- at the covariate means instead --------------------------------------
+marginal_effects(fit, at = "mem")
+## Larger in absolute value here (0.2143 for x1): the average linear
+## predictor sits nearer the middle of the logistic curve, where mu(1-mu)
+## attains its maximum, than the typical observation does.
+
+## -- the delta method versus the shortcut --------------------------------
+se_shortcut <- sqrt(diag(vcov(fit)))[["mu:x1"]] * mean(muh * (1 - muh))
+se_exact    <- me$table$std.error[me$table$variable == "x1"]
+c(shortcut = se_shortcut, exact = se_exact, ratio = se_shortcut / se_exact)
+## shortcut 0.009192, exact 0.005758, ratio 1.596.  Freezing mu(1-mu) at its
+## average ignores that it, too, depends on the coefficients, and the two
+## dependencies partially cancel.
+
+## -- robust and subpopulation variants -----------------------------------
+marginal_effects(fit, vcov. = vcov(fit, type = "sandwich"))
+marginal_effects(fit, variables = "x1", newdata = subset(dat, x2 == "1"))
+}
+\seealso{
+\code{\link[=gkwqreg]{gkwqreg()}} for the model and the interpretation of its
+coefficients, \code{\link[=predict.gkwqreg]{predict.gkwqreg()}} for predictions, \code{\link[=vcov.gkwqreg]{vcov.gkwqreg()}} for the
+covariance matrices that can be passed to \code{vcov.}.
 }
