@@ -128,7 +128,7 @@ ll <- vapply(c("kw", "ekw", "kkw", "bkw", "gkw"), function(f) {
 }, numeric(1))
 round(ll, 4)
 #>       kw      ekw      kkw      bkw      gkw 
-#> 187.6676 187.6865 187.8980 187.6865 188.0378
+#> 187.6676 187.6865 187.8980 187.6865 187.6865
 ```
 
 **Part.** One component of the multi-part formula, naming a parameter
@@ -419,7 +419,7 @@ vapply(c("kw", "ekw", "gkw"), function(f) {
   suppressWarnings(gkwqreg(y ~ x, data = d, tau = 0.5, family = f))$cond_number
 }, numeric(1))
 #>           kw          ekw          gkw 
-#> 6.015385e+00 9.664306e+01 2.423467e+07
+#> 6.015385e+00 9.664306e+01 4.426736e+12
 ```
 
 ------------------------------------------------------------------------

@@ -730,9 +730,9 @@ anova(fit, fit_ekw)    # kw is nested in ekw: one degree of freedom
 ## richer family that failed to converge can still post the best logLik:
 compare_families(fit, families = c("kw", "ekw", "kkw", "beta"))
 #>   family anchor df   logLik       AIC       BIC    pinball converged
-#> 1    kkw   beta  6 212.0558 -412.1117 -389.8890 0.06709081     FALSE
-#> 2     kw   beta  4 191.9378 -375.8756 -361.0604 0.06713950      TRUE
-#> 3    ekw   beta  5 192.0639 -374.1278 -355.6089 0.06712997      TRUE
+#> 1     kw   beta  4 191.9378 -375.8756 -361.0604 0.06713950      TRUE
+#> 2    ekw   beta  5 192.0639 -374.1278 -355.6089 0.06712997      TRUE
+#> 3    kkw   beta  6 192.3088 -372.6177 -350.3950 0.06709513     FALSE
 #> 4   beta  gamma  4  78.2969 -148.5938 -133.7787 0.07321204      TRUE
 # }
 ```
