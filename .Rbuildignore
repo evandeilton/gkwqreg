@@ -4,3 +4,6 @@
 ^_pkgdown\.yml$
 ^pkgdown$
 ^pkgdown-site$
+^.*\.tar\.gz$
+^.*\.Rcheck$
+^Rplots\.pdf$
