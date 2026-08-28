@@ -746,8 +746,14 @@ confint.gkwqreg <- function(object, parm, level = 0.95,
     z <- stats::qnorm(1 - a)
     ci <- cbind(cf[parm] - z * se, cf[parm] + z * se)
   } else if (method == "boot") {
+    ## The `percentile` component of a gkwq_boot object is fixed at 2.5/97.5,
+    ## which is its own documented contract. Reading it here would ignore
+    ## `level` while the dimnames below still label the result with it, so the
+    ## quantiles are taken from the surviving replicates at the level asked for.
     b <- gkwq_boot(object, R = R, ...)
-    ci <- b$percentile[parm, , drop = FALSE]
+    ok <- stats::complete.cases(b$replicates)
+    ci <- t(apply(b$replicates[ok, parm, drop = FALSE], 2L,
+                  stats::quantile, probs = c(a, 1 - a), names = FALSE))
   } else {
     ## Profile the TMB objective one coefficient at a time. Worth the cost here:
     ## the conditional quantile is not orthogonal to the nuisance parameters, so

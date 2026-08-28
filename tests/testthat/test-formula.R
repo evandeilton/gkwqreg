@@ -50,3 +50,53 @@ test_that("an offset enters the likelihood exactly once", {
   expect_error(gkwqreg(y ~ x, data = d, tau = 0.5, family = "kw",
                        offset = rep(0, 3)), "length")
 })
+
+test_that("an offset() term is resampled with the rows it belongs to", {
+  ## The model frame stores an offset() term under its deparsed call --
+  ## "offset(zz)", "offset(log(v))" -- which no formula can resolve on a refit.
+  ## The bootstrap therefore used to re-evaluate the expression against the
+  ## caller's environment, reaching past the resampled rows to the ORIGINAL
+  ## variable, so replicate row i carried observation i's offset whatever row it
+  ## had drawn. That produced replicates centred far from the estimate while
+  ## every one of them reported convergence; when the variable happened not to
+  ## be in scope it failed instead, under a message blaming the fit's stability.
+  ##
+  ## The invariant is that the two ways of supplying the same offset -- the
+  ## argument and the term -- must bootstrap alike, since they fit alike.
+  set.seed(77); n <- 150
+  x <- stats::runif(n); zz <- stats::rnorm(n, 0, 0.6)
+  mu <- stats::plogis(0.2 + 0.8 * x + zz)
+  y <- pmin(pmax(stats::qbeta(stats::runif(n), 2, 3) * .15 + mu * .85,
+                 1e-6), 1 - 1e-6)
+  d <- data.frame(y = y, x = x, zz = zz, v = exp(zz))
+
+  f_fml <- gkwqreg(y ~ x + offset(zz), data = d, tau = 0.5, family = "kw")
+  f_arg <- gkwqreg(y ~ x, data = d, tau = 0.5, family = "kw", offset = zz)
+  expect_equal(f_fml$loglik, f_arg$loglik, tolerance = 1e-8)
+
+  b_fml <- suppressWarnings(gkwq_boot(f_fml, R = 40, seed = 5))
+  b_arg <- suppressWarnings(gkwq_boot(f_arg, R = 40, seed = 5))
+  expect_equal(b_fml$n_ok, b_arg$n_ok)
+  expect_equal(unname(colMeans(b_fml$replicates, na.rm = TRUE)),
+               unname(colMeans(b_arg$replicates, na.rm = TRUE)),
+               tolerance = 1e-6)
+  ## And it centres on the estimate. The broken version missed by 1.67 here.
+  expect_lt(max(abs(colMeans(b_fml$replicates, na.rm = TRUE) - coef(f_fml))), 0.2)
+
+  ## An offset() holding an expression rather than a bare name: the model frame
+  ## column is "offset(log(v))", and log(v) must never be evaluated again.
+  f_exp <- gkwqreg(y ~ x + offset(log(v)), data = d, tau = 0.5, family = "kw")
+  expect_equal(f_exp$loglik, f_fml$loglik, tolerance = 1e-8)
+  b_exp <- suppressWarnings(gkwq_boot(f_exp, R = 40, seed = 5))
+  expect_equal(b_exp$n_ok, b_fml$n_ok)
+  expect_equal(unname(colMeans(b_exp$replicates, na.rm = TRUE)),
+               unname(colMeans(b_fml$replicates, na.rm = TRUE)),
+               tolerance = 1e-6)
+
+  ## An offset() on a nuisance part is reached too: the argument only ever
+  ## attaches to mu, so this route has no substitute.
+  f_nui <- gkwqreg(y ~ x | offset(zz), data = d, tau = 0.5, family = "kw")
+  b_nui <- suppressWarnings(gkwq_boot(f_nui, R = 40, seed = 5))
+  expect_gt(b_nui$n_ok, 30L)
+  expect_lt(max(abs(colMeans(b_nui$replicates, na.rm = TRUE) - coef(f_nui))), 0.3)
+})

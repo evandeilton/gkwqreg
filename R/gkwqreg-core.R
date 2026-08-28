@@ -551,9 +551,16 @@ gkwqreg <- function(formula, data, tau = 0.5,
   ## For the families that need the incomplete beta this turns n atomic
   ## inversions into one, which is the difference between a usable and an
   ## unusable `gkw` fit.
+  ## The part is constant across observations only when every column of its
+  ## design matrix is constant. `ncol(X) > 1` is a different test: a part
+  ## written without an intercept -- `~ z - 1`, `~ 0 + z` -- has one column
+  ## that varies with i, and hoisting log z there evaluates a likelihood that
+  ## is not the model's.
   varying <- vapply(c("gamma", "delta"), function(nm) {
     if (!nm %in% parts) return(FALSE)
-    ncol(md$X[[nm]]) > 1L || any(md$offsets[[nm]] != md$offsets[[nm]][1L])
+    X <- md$X[[nm]]
+    any(vapply(seq_len(ncol(X)), function(j) any(X[, j] != X[1L, j]), logical(1))) ||
+      any(md$offsets[[nm]] != md$offsets[[nm]][1L])
   }, logical(1))
   z_is_scalar <- as.integer(!any(varying))
 

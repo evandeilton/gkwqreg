@@ -1,12 +1,12 @@
 ## V8, V9, V10 -- differentiation. V9 and V10 are the tests that would have
 ## caught the two AD defects found during the design study.
 
-make_obj <- function(fam, d, tau = 0.5, par = NULL) {
+make_obj <- function(fam, d, tau = 0.5, par = NULL, anchor = NULL) {
   info <- gq(".gkwq_family_info"); md_f <- gq(".gkwq_model_data")
   val <- gq(".gkwq_validate_y"); lks <- gq(".gkwq_links")
   scl <- gq(".gkwq_link_scales"); tdat <- gq(".gkwq_tmb_data")
   tpar <- gq(".gkwq_tmb_params")
-  spec <- info(fam, NULL)
+  spec <- info(fam, anchor)
   md <- md_f(y ~ x, d, spec$parts, NULL, stats::na.omit, NULL, NULL, NULL,
              fam, spec$anchor)
   yv <- val(md$y, 1e-10)
@@ -75,18 +75,79 @@ test_that("V10: incomplete-beta derivatives are correct at WHOLE-NUMBER shapes",
   }
 })
 
-test_that("the series for the incomplete beta matches pbeta and numDeriv", {
-  ## The atomic's value and derivatives, checked through the R oracle that
-  ## mirrors them, over the shape range delta >= 0 actually allows (q >= 1).
-  g <- expand.grid(x = c(.01, .1, .3, .5, .7, .9, .99),
-                   p = c(.2, .5, 1, 1.6, 3, 10, 25),
-                   q = c(1, 1.5, 2, 3, 10, 25))
-  got <- stats::pbeta(g$x, g$p, g$q)
-  expect_true(all(is.finite(got)))
-  ## dI/dp and dI/dq against numDeriv at a sample of points
-  for (i in seq(1, nrow(g), by = 37)) {
-    gn <- numDeriv::grad(function(v) stats::pbeta(g$x[i], v[1], v[2]),
-                         c(g$p[i], g$q[i]))
-    expect_true(all(is.finite(gn)))
+## ---------------------------------------------------------------------------
+## The two atomics in inst/include/gkwq_atomic.hpp:
+##
+##   qbeta_safe (tau, p, q)  -> z  with  I_z(p,q) = tau
+##   gamma_solve(mu,  q, tau) -> p  with  I_mu(p,q) = tau
+##
+## Nothing here may be satisfiable by stats::pbeta alone. An earlier version of
+## this block called only stats::pbeta and numDeriv::grad(stats::pbeta), which
+## made it pass with the package unloaded -- it compared pbeta with itself and
+## left the header, which exists solely because TMB's own qbeta derivatives are
+## wrong, with no value test at all. Each test below reads a quantity the
+## COMPILED tape produced, via obj$report(), and confronts it with an R route
+## that shares no code with the header.
+## ---------------------------------------------------------------------------
+
+test_that("gamma_solve inverts the incomplete beta: I_mu(gamma, delta+1) = tau", {
+  ## The `beta` family's anchor has no closed form, so gamma is whatever the
+  ## gamma_solve atomic returned. Its defining property is checkable directly
+  ## against stats::pbeta, which shares no code with the header. If the bracket
+  ## or the root finder in gamma_solve_double drifts, this is what catches it.
+  d <- sim_kw(n = 120, seed = 5)
+  for (tau in c(0.1, 0.5, 0.9)) {
+    f <- suppressWarnings(gkwqreg(y ~ x, data = d, tau = tau, family = "beta"))
+    pv <- f$parameter_vectors            # from obj$report(): the compiled side
+    expect_true(all(is.finite(pv$gamma)),
+                label = sprintf("gamma is finite at tau = %.1f", tau))
+    back <- stats::pbeta(fitted(f), pv$gamma, pv$delta + 1)
+    expect_equal(back, rep(tau, nrow(pv)), tolerance = 1e-7,
+                 info = sprintf("tau = %.1f", tau))
+  }
+})
+
+test_that("the atomics agree with stats::qbeta and uniroot on every anchor", {
+  ## The tape reconstructs the anchored parameter in C++, through qbeta_safe
+  ## (z_mode 3) or gamma_solve (family `beta`). .gkwq_reconstruct() does the
+  ## same job in R through stats::qbeta and uniroot over stats::pbeta. The two
+  ## share no implementation, so agreement is evidence about the atomic and not
+  ## about a single code path evaluated twice.
+  recon <- gq(".gkwq_reconstruct"); info <- gq(".gkwq_family_info")
+  d <- sim_kw(n = 100, seed = 9)
+  for (fam in ALL_FAMILIES) {
+    for (anc in gkwq_anchors(fam)) {
+      for (tau in c(0.25, 0.75)) {
+        lab <- sprintf("family %s, anchor %s, tau %.2f", fam, anc, tau)
+        f <- suppressWarnings(gkwqreg(y ~ x, data = d, tau = tau,
+                                      family = fam, anchor = anc))
+        pv <- f$parameter_vectors
+        r <- recon(fitted(f), tau, info(fam, anc), as.list(pv))
+        expect_equal(pv[[anc]], as.numeric(r[, anc]), tolerance = 1e-6,
+                     info = lab)
+      }
+    }
+  }
+})
+
+test_that("the AD gradient matches numDeriv on every anchor branch", {
+  ## V9 only ever built objects at each family's DEFAULT anchor, which leaves
+  ## `case 2: // eliminate alpha` in src/gkwqreg.cpp unreached even though
+  ## alpha is admissible in five of the seven families. Every branch of the
+  ## anchor switch is exercised here, away from tau = 0.5 as well.
+  d <- sim_kw(n = 80, seed = 3)
+  for (fam in ALL_FAMILIES) {
+    for (anc in gkwq_anchors(fam)) {
+      for (tau in c(0.2, 0.8)) {
+        lab <- sprintf("family %s, anchor %s, tau %.1f", fam, anc, tau)
+        obj <- make_obj(fam, d, tau = tau, anchor = anc)
+        p <- obj$par; p[] <- 0
+        g_ad <- as.numeric(obj$gr(p))
+        g_num <- numDeriv::grad(obj$fn, p)
+        expect_true(all(is.finite(g_ad)), label = paste("finite AD gradient,", lab))
+        expect_lt(max(abs(g_ad - g_num)) / max(1, max(abs(g_num))), 1e-6,
+                  label = paste("gradient,", lab))
+      }
+    }
   }
 })
