@@ -16,7 +16,7 @@ Description: Fixed-level parametric quantile regression for bounded responses in
     of levels, and crossing detection. Generalizes the Kumaraswamy quantile
     reparametrization of Mitnik and Baek (2013) <doi:10.1007/s00362-011-0417-y>.
 License: MIT + file LICENSE
-URL: https://github.com/evandeilton/gkwqreg
+URL: https://github.com/evandeilton/gkwqreg, https://evandeilton.github.io/gkwqreg/
 BugReports: https://github.com/evandeilton/gkwqreg/issues
 Depends: R (>= 3.5)
 Imports: Formula, TMB, gkwdist, graphics, grDevices, numDeriv, stats, utils
