@@ -1,0 +1,192 @@
+---
+title: "How gkwqreg relates to quantreg, unitquantreg and betareg"
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{How gkwqreg relates to quantreg, unitquantreg and betareg}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+```{r setup, include = FALSE}
+knitr::opts_chunk$set(collapse = TRUE, comment = "#>", fig.width = 7)
+library(gkwqreg)
+set.seed(20260827)
+has <- function(p) requireNamespace(p, quietly = TRUE)
+```
+
+## "Quantile" means three different things here
+
+Most of the confusion in this corner of the ecosystem comes from one word carrying three
+meanings.
+
+**1. Check-function quantile regression.** `quantreg`, `qgam`. Distribution-free,
+indexed by `tau`, no likelihood. Minimises the pinball loss directly.
+
+**2. Location- or median-parametrized models.** `cdfquantreg`, and
+`betareg`'s `predict(type = "quantile")`. A *single* fit whose location parameter happens
+to be the median, or quantiles derived after the fact from a mean model. These are **not**
+`tau`-indexed — `cdfquantreg` has no `tau` argument at all.
+
+**3. `tau`-indexed parametric quantile regression.** `unitquantreg`, and this package.
+One likelihood per `tau`, with a parameter that *is* the `tau`-quantile.
+
+| package | support | type | families | nested? |
+|---|---|---|---|---|
+| `quantreg` | ℝ | check-function | — | — |
+| `qgam` | ℝ | smooth check-function | — | — |
+| `betareg` | (0,1) | mean–precision | beta | — |
+| `cdfquantreg` | (0,1) | median / location | 36 pairs | no |
+| `gamlss` | flexible | distributional | many (no Kumaraswamy) | no |
+| `gkwreg` | (0,1) | distributional (mean) | 7 | **yes** |
+| `unitquantreg` | (0,1) | **τ-indexed parametric** | 13 | no |
+| **`gkwqreg`** | (0,1) | **τ-indexed parametric** | **7** | **yes** |
+
+## The prior art, and the identity that proves it
+
+The `kw` slice of this package **is** the Kumaraswamy quantile reparametrization of
+Mitnik and Baek (2013), which `unitquantreg` implements as its `kum` family. That is not
+a similarity to be glossed over — it is the strongest validation the construction has, so
+the package tests it.
+
+```{r uqr, eval = has("unitquantreg")}
+library(unitquantreg)
+n <- 400
+x <- runif(n, -2, 2)
+mu <- plogis(0.4 + 1.1 * x)
+y <- gkwdist::rkw(n, alpha = 2, beta = log1p(-0.5) / log1p(-mu^2))
+d <- data.frame(y = y, x = x)
+
+out <- t(sapply(c(0.25, 0.50, 0.75), function(tau) {
+  a <- gkwqreg(y ~ x, data = d, tau = tau, family = "kw")
+  b <- unitquantreg(y ~ x, data = d, tau = tau, family = "kum")
+  c(tau = tau,
+    gkwqreg_b0 = coef(a)[[1]], gkwqreg_b1 = coef(a)[[2]],
+    unitq_b0 = coef(b)[[1]],   unitq_b1 = coef(b)[[2]],
+    max_diff = max(abs(unname(coef(a)[1:2]) - unname(coef(b)[1:2]))))
+}))
+knitr::kable(out, digits = c(2, 5, 5, 5, 5, 10))
+```
+
+On the author's machine the two agree to between `1.2e-08` and `4.4e-06`. They are the
+same estimator, implemented independently — one by hand-derived C++ gradients, one by
+automatic differentiation through a general five-parameter template.
+
+**What is new here** is not the `kw` case. It is the extension to the four- and
+five-parameter members — for which no quantile regression appears in print — and the fact
+that they are **nested**, so family selection is an ordinary likelihood-ratio test.
+`unitquantreg`'s thirteen families are mutually non-nested and require Vuong tests.
+
+```{r nested}
+d <- local({
+  n <- 400; x <- runif(n, -2, 2); mu <- plogis(0.4 + 1.1 * x)
+  data.frame(y = gkwdist::rkw(n, 2, log1p(-0.5) / log1p(-mu^2)), x = x)
+})
+anova(gkwqreg(y ~ x, data = d, tau = .5, family = "kw"),
+      gkwqreg(y ~ x, data = d, tau = .5, family = "ekw"),
+      gkwqreg(y ~ x, data = d, tau = .5, family = "gkw"))
+```
+
+## Against `quantreg`, under correct specification
+
+```{r rq, eval = has("quantreg")}
+library(quantreg)
+loss <- function(y, q, tau) mean((y - q) * (tau - ((y - q) < 0)))
+res <- t(sapply(c(0.25, 0.5, 0.75), function(tau) {
+  a <- gkwqreg(y ~ x, data = d, tau = tau, family = "kw")
+  r <- rq(y ~ x, data = d, tau = tau)
+  c(tau = tau, gkwqreg = pinball(a), rq = loss(d$y, fitted(r), tau))
+}))
+knitr::kable(res, digits = 6)
+```
+
+The two are close, as they should be: with the family correctly specified, the parametric
+fit has little to gain in sample and loses nothing. Its advantages lie elsewhere —
+standard errors from a likelihood, nested model comparison, a full conditional
+distribution, and no crossing.
+
+## Against `quantreg`, under misspecification
+
+This is where the honest comparison lives, and it must not be buried. Generate from a
+two-component beta mixture, which is bimodal and lies outside the Generalized Kumaraswamy
+family entirely.
+
+```{r mis, eval = has("quantreg")}
+n <- 600
+x <- runif(n, -2, 2)
+comp <- rbinom(n, 1, plogis(0.5 * x))
+y <- ifelse(comp == 1, rbeta(n, 8, 2), rbeta(n, 2, 8))
+y <- pmin(pmax(y, 1e-8), 1 - 1e-8)
+dm <- data.frame(y = y, x = x)
+
+## split-sample, so the comparison is out of sample
+idx <- sample(n, n / 2)
+tr <- dm[idx, ]; te <- dm[-idx, ]
+
+mis <- t(sapply(c(0.1, 0.25, 0.5, 0.75, 0.9), function(tau) {
+  a <- suppressWarnings(gkwqreg(y ~ x, data = tr, tau = tau, family = "ekw"))
+  r <- rq(y ~ x, data = tr, tau = tau)
+  c(tau = tau,
+    gkwqreg = loss(te$y, predict(a, newdata = te), tau),
+    rq      = loss(te$y, predict(r, newdata = te), tau))
+}))
+knitr::kable(mis, digits = 5)
+```
+
+Under a distribution the family cannot represent, check-function quantile regression
+remains consistent for the conditional quantile and the parametric fit does not. That is
+the central trade-off of parametric quantile regression, and it is the reason
+`quantreg` remains the right default when you know nothing about the conditional
+distribution.
+
+The reverse holds too: when the family is right, the parametric fit uses information the
+check function throws away, and it gives you a likelihood to do inference with.
+
+## Against `betareg`
+
+`betareg` fits a mean–precision model. Its `predict(type = "quantile")` applies the beta
+quantile function to the fitted mean and precision, which is meaning (2) above.
+
+```{r breg, eval = has("betareg")}
+library(betareg)
+data("GasolineYield", package = "betareg")
+
+bq <- betareg(yield ~ batch + temp, data = GasolineYield)
+gq <- gkwqreg(yield ~ batch + temp, data = GasolineYield, tau = 0.9, family = "kw")
+
+## betareg: the 0.9-quantile implied by a MEAN model
+q_breg <- qbeta(0.9, shape1 = predict(bq, type = "response") * predict(bq, type = "precision"),
+                shape2 = (1 - predict(bq, type = "response")) * predict(bq, type = "precision"))
+
+c(coverage_betareg = mean(GasolineYield$yield <= q_breg),
+  coverage_gkwqreg = mean(GasolineYield$yield <= fitted(gq)),
+  target = 0.9)
+```
+
+Both produce a number. Only one of them has a coefficient whose standard error refers to
+the 0.9-quantile:
+
+```{r bregcoef, eval = has("betareg")}
+round(summary(gq)$coefficients["mu:temp", ], 5)
+```
+
+In `betareg` the coefficient on `temp` describes the **mean**. Converting it into a
+statement about the 0.9-quantile means propagating uncertainty through both the mean and
+the precision submodels; here the quantity is modelled directly.
+
+## Choosing between them
+
+- Conditional distribution unknown or clearly outside the family → **`quantreg`**.
+- Smooth or additive quantile effects → **`qgam`**.
+- Median only, no interest in shape → **`unitquantreg`** or **`cdfquantreg`**.
+- A mean model that happens to also report quantiles → **`betareg`**, **`gkwreg`**.
+- A `tau`-indexed likelihood with quantile-interpretable coefficients, shape
+  heterogeneity, and nested family selection on (0,1) → **`gkwqreg`**.
+
+## References
+
+- Koenker and Bassett (1978). Regression quantiles. *Econometrica* **46**, 33–50.
+- Mitnik and Baek (2013). *Statistical Papers* **54**, 177–192.
+- Mazucheli, Alves, Menezes and Leiva (2022). `unitquantreg`. *CMPB* **221**, 106816.
+- Ferrari and Cribari-Neto (2004). Beta regression for modelling rates and proportions.
+- Chernozhukov, Fernández-Val and Galichon (2010). Quantile and probability curves
+  without crossing.

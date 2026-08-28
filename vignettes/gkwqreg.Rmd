@@ -1,0 +1,180 @@
+---
+title: "Getting started with gkwqreg"
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{Getting started with gkwqreg}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+```{r setup, include = FALSE}
+knitr::opts_chunk$set(collapse = TRUE, comment = "#>", fig.width = 7,
+                      fig.height = 4.5)
+library(gkwqreg)
+set.seed(20260827)
+```
+
+## The question this package answers
+
+Suppose a response lies strictly between 0 and 1 — a yield, a proportion, an index — and
+you care about its upper tail rather than its average. Two families of tools exist.
+
+**Check-function quantile regression** (`quantreg::rq`) is distribution-free and indexed
+by a quantile level `tau`. It is the reference method and it stays consistent even when
+you have no idea what the conditional distribution looks like.
+
+**Distributional regression** (`gkwreg`, `betareg`, `gamlss`) fits a full parametric model
+for the conditional distribution, and can report quantiles afterwards by applying the
+quantile function to the fitted parameters. That answers *"given the fitted distribution,
+what is its 90th percentile?"*
+
+Neither answers *"how do covariates shift the 90th percentile?"* with a coefficient you
+can read off and a standard error that refers to it. The first has no likelihood; the
+second has no parameter that **is** the 90th percentile.
+
+`gkwqreg` fixes `tau` in advance and reparametrizes the distribution so that one of its
+parameters is exactly the conditional `tau`-quantile.
+
+## A first fit
+
+```{r data}
+n  <- 400
+x  <- runif(n, -2, 2)
+z  <- rbinom(n, 1, 0.5)
+mu <- plogis(0.4 + 1.1 * x - 0.6 * z)          # the conditional MEDIAN
+y  <- gkwdist::rkw(n, alpha = 2, beta = log1p(-0.5) / log1p(-mu^2))
+dat <- data.frame(y = y, x = x, z = factor(z))
+```
+
+The data are generated so that `plogis(0.4 + 1.1 x - 0.6 z)` is the conditional median.
+Fitting at `tau = 0.5` should recover those numbers.
+
+```{r fit}
+fit <- gkwqreg(y ~ x + z, data = dat, tau = 0.5, family = "kw")
+summary(fit)
+```
+
+Three things in that output are worth pausing on.
+
+**The header** names the family, the quantile level and the anchored parameter. All three
+change what the model *is*, so none of them is hidden.
+
+**The coefficient block for `mu`** is labelled as effects on the log quantile odds, not on
+a mean and not on the odds of an event. This is the most likely thing for a reader to get
+wrong.
+
+**Empirical coverage** reports the fraction of observations below the fitted quantile. It
+should sit at `tau`, and it is the cheapest available check that the fit is doing what it
+claims.
+
+## The formula has one part per modelled parameter
+
+Part one is always the conditional quantile. The remaining parts follow the family's
+parameter order with the anchored parameter removed. `gkwq_parts()` is the contract:
+
+```{r parts}
+gkwq_parts("kw")
+gkwq_parts("ekw")
+gkwq_parts("gkw")
+```
+
+So for `kw` the second part is `alpha`:
+
+```{r het}
+fit_het <- gkwqreg(y ~ x + z | x, data = dat, tau = 0.5, family = "kw")
+```
+
+Omitted trailing parts default to `~ 1`. Supplying **more** parts than the family has is
+an error that names the parts it expected, rather than silently ignoring the extras.
+
+## What the coefficients mean
+
+```{r meff}
+marginal_effects(fit)
+```
+
+`exp(coef(fit)["mu:x"])` is the multiplicative effect on the odds of the conditional
+median. `marginal_effects()` converts that to the effect on the median itself,
+`beta_j * mu * (1 - mu)` under the logit link.
+
+There is a small bonus in this parametrization. If a covariate appears in *both* the
+quantile part and a nuisance part, the effect on the quantile is still exactly the
+expression above, because `mu` **is** the quantile — the nuisance part changes the spread
+of the conditional distribution, not the quantile being modelled. `marginal_effects()`
+says so when it detects the overlap.
+
+## Choosing a family
+
+The seven families are genuinely nested, so a likelihood-ratio test applies:
+
+```{r nesting}
+fit_kw  <- gkwqreg(y ~ x + z, data = dat, tau = 0.5, family = "kw")
+fit_ekw <- gkwqreg(y ~ x + z, data = dat, tau = 0.5, family = "ekw")
+anova(fit_kw, fit_ekw)
+```
+
+For an out-of-sample choice, prefer check loss: it is the criterion a quantile estimate
+actually targets, whereas AIC compares likelihoods.
+
+```{r compare}
+compare_families(fit_kw, families = c("kw", "ekw", "bkw", "beta"))
+```
+
+## Diagnostics
+
+```{r resid}
+head(residuals(fit, type = "quantile"))
+head(residuals(fit, type = "tau-sign"))
+```
+
+`"quantile"` residuals are standard normal under correct specification and are the
+default. `"tau-sign"` is specific to quantile regression: under a correctly specified
+model `E[1{Y <= Q_tau(X)} | X] = tau` exactly, so binning these by any covariate and
+testing for a zero mean is a distribution-free calibration check with no analogue in mean
+regression. Panel 5 of the diagnostic plot draws it.
+
+```{r plot, fig.height = 6}
+plot(fit, which = c(3, 4, 5, 6), nsim = 50)
+```
+
+## Several quantile levels
+
+Each level is a separate likelihood, so a vector `tau` returns a container of independent
+fits rather than one pooled object.
+
+```{r process}
+fits <- gkwqreg(y ~ x + z, data = dat, tau = c(0.1, 0.25, 0.5, 0.75, 0.9),
+                family = "kw")
+round(coef(fits), 3)
+```
+
+```{r procplot, fig.height = 3.2}
+plot(quantile_process(fits), parts = "mu")
+```
+
+The coefficient path shows how the effect of `x` changes across the distribution — the
+picture quantile regression exists to produce.
+
+## Crossing
+
+Independently fitted levels carry no guarantee that fitted quantiles increase with `tau`:
+
+```{r crossing}
+check_crossing(fits)
+```
+
+A *single* fit cannot cross, because its quantiles are those of one proper distribution
+function:
+
+```{r crossing1}
+check_crossing(fit, taus = seq(0.1, 0.9, by = 0.1))
+```
+
+If separate fits do cross, `rearrange()` applies the monotone rearrangement of
+Chernozhukov, Fernández-Val and Galichon (2010).
+
+## Where to go next
+
+The companion vignette, *The anchor, and why it is a modeling choice*, covers the
+reparametrization itself, the identifiability constraints, and the one decision in this
+package that changes your answers rather than your arithmetic.

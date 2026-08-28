@@ -1,0 +1,195 @@
+---
+title: "Case study: upper-quantile body-fat modelling"
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{Case study: upper-quantile body-fat modelling}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+```{r setup, include = FALSE}
+knitr::opts_chunk$set(collapse = TRUE, comment = "#>", fig.width = 7,
+                      fig.height = 4.5)
+library(gkwqreg)
+has_uqr <- requireNamespace("unitquantreg", quietly = TRUE)
+knitr::opts_chunk$set(eval = has_uqr)
+set.seed(20260827)
+```
+
+```{r noeval, eval = !has_uqr, echo = FALSE, results = "asis"}
+cat("This vignette needs the `unitquantreg` package for its data. Install it to
+run the code below.\n")
+```
+
+## The question
+
+`bodyfat` (from `unitquantreg`, n = 298) records the android fat percentage of
+participants along with age, sex and physical-activity level. Android fat — the
+abdominal deposit — is the fraction clinically associated with cardiometabolic risk, and
+the clinical interest is in the **upper tail**, not the average. A person at the 90th
+percentile of android fat for their profile is the one worth flagging.
+
+That is a quantile question, and it is the kind that mean regression answers only
+indirectly.
+
+```{r data}
+data("bodyfat", package = "unitquantreg")
+str(bodyfat[, c("android", "age", "sex", "ipaq")])
+range(bodyfat$android)
+```
+
+The response lies strictly inside $(0,1)$, so the Generalized Kumaraswamy family applies
+directly.
+
+## Fitting the 0.9-quantile
+
+```{r fit}
+fit <- gkwqreg(android ~ age + ipaq + sex, data = bodyfat,
+               tau = 0.9, family = "kw")
+summary(fit)
+```
+
+Reading the quantile block:
+
+- **`age`** is highly significant and positive. Under the logit link the coefficient
+  is an effect on the log odds of the conditional 0.9-quantile.
+- **`sexmale`** is strongly negative: at the same age and activity level, the upper tail of
+  android fat sits lower for men in this sample.
+- **`ipaq`** contributes little at this quantile.
+
+The two summary lines worth reading before anything else:
+
+```{r coverage}
+c(empirical_coverage = mean(bodyfat$android <= fitted(fit)), target = 0.9)
+```
+
+The fit places 90.6% of observations below its fitted quantile against a target of 90%,
+and the information-matrix condition number in the summary is small, so the standard
+errors mean what they say.
+
+## What the coefficients are worth on the response scale
+
+```{r meff}
+marginal_effects(fit)
+```
+
+One additional year of age shifts the conditional 0.9-quantile of android fat by the
+amount in the `effect` column — directly interpretable, unlike the log-odds coefficient.
+
+## Choosing a family: two criteria that disagree
+
+```{r compare}
+cmp <- suppressWarnings(
+  compare_families(fit, families = c("kw", "ekw", "kkw", "bkw", "beta")))
+cmp
+```
+
+This is worth dwelling on, because it is the situation the documentation warns about.
+**AIC ranks `beta` first while check loss ranks it last**, behind every Kumaraswamy member.
+The two disagree because they measure different things: AIC scores the whole conditional
+density, check loss scores only the quantile being estimated. A family can describe the
+bulk of the distribution well — which is what buys it the likelihood — and still place the
+0.9-quantile worse than a rival that fits the bulk less well.
+
+For a quantile question the check loss is the criterion that matches the goal — but it
+must be computed **out of sample**, or it simply rewards flexibility:
+
+```{r cv}
+set.seed(1)
+folds <- sample(rep(1:5, length.out = nrow(bodyfat)))
+cv <- sapply(c("kw", "ekw", "bkw", "beta"), function(fam) {
+  mean(sapply(1:5, function(k) {
+    tr <- bodyfat[folds != k, ]; te <- bodyfat[folds == k, ]
+    f <- suppressWarnings(try(gkwqreg(android ~ age + ipaq + sex, data = tr,
+                                      tau = 0.9, family = fam), silent = TRUE))
+    if (inherits(f, "try-error")) return(NA_real_)
+    pinball(f, newdata = te)
+  }), na.rm = TRUE)
+})
+round(cv, 6)
+```
+
+Five-fold cross-validated check loss is the number to act on.
+
+## Where the model fits badly
+
+```{r diag, fig.height = 6}
+plot(fit, which = c(3, 4, 5, 6), nsim = 50)
+```
+
+Panel 5 is the one specific to quantile regression. It bins the `tau`-sign residuals
+$1\{y_i \le \hat Q_i\} - \tau$ by fitted value. Under a correctly specified model each bin
+mean is zero, and the bars are 95% binomial intervals — so a bin whose interval excludes
+zero is direct, distribution-free evidence that the fit is miscalibrated in that part of
+the covariate space.
+
+## Across the distribution
+
+The effect of age need not be constant across quantiles. That is the whole reason to fit
+more than one.
+
+```{r process, fig.height = 3.2}
+fits <- suppressWarnings(
+  gkwqreg(android ~ age + ipaq + sex, data = bodyfat,
+          tau = c(0.1, 0.25, 0.5, 0.75, 0.9), family = "kw"))
+qp <- quantile_process(fits)
+plot(qp, parm = c("mu:age", "mu:sexmale"))
+```
+
+```{r crossing}
+check_crossing(fits)
+```
+
+If the independently fitted levels cross anywhere, `rearrange()` restores monotonicity:
+
+```{r rearr}
+R <- rearrange(fits)
+all(apply(R, 1, function(r) all(diff(r) >= 0)))
+```
+
+## Modelling the shape as well
+
+Section 1.5 of the design notes recommends regressing the nuisance parameter on the same
+covariates as the quantile whenever theory does not dictate an anchor. Doing so makes the
+fit robust to the anchor choice, and here it also tests whether the *spread* of android fat
+varies with age:
+
+```{r het}
+fit_het <- gkwqreg(android ~ age + ipaq + sex | age, data = bodyfat,
+                   tau = 0.9, family = "kw")
+anova(fit, fit_het)
+```
+
+```{r anchorcheck}
+fa <- gkwqreg(android ~ age + ipaq + sex | age, data = bodyfat,
+              tau = 0.9, family = "kw", anchor = "alpha")
+rbind(beta_anchor  = coef(fit_het)[c("mu:age", "mu:sexmale")],
+      alpha_anchor = coef(fa)[c("mu:age", "mu:sexmale")])
+```
+
+With the nuisance parameter saturated, the two anchors agree closely — which is exactly
+the point of the recommendation: it removes the dependence on a choice you have no strong
+grounds to make.
+
+## Robust standard errors
+
+If you doubt the distributional assumption but still want the parametric fit, the sandwich
+estimator is available, and `sandwich`/`lmtest` work directly:
+
+```{r sandwich}
+round(cbind(model = sqrt(diag(vcov(fit))),
+            sandwich = sqrt(diag(vcov(fit, type = "sandwich")))), 5)
+```
+
+A large gap between the two columns is itself a specification warning.
+
+## Summary
+
+The workflow this vignette follows is the one to reuse:
+
+1. Fit at the quantile level the question is about.
+2. Check empirical coverage and the condition number in `summary()`.
+3. Choose the family by **out-of-sample check loss**, not AIC alone.
+4. Read effects on the response scale with `marginal_effects()`.
+5. Check calibration with panel 5, not just the Q-Q plot.
+6. Saturate the nuisance parameters, and confirm the anchor no longer matters.
