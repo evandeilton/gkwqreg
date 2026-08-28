@@ -1,0 +1,270 @@
+# The anchor, and why it is a modeling choice
+
+## The reparametrization
+
+For 0 \< y \< 1 the Generalized Kumaraswamy density is
+
+f(y)=\frac{\lambda\alpha\beta}{B(\gamma,\delta+1)}\\
+y^{\alpha-1}(1-y^{\alpha})^{\beta-1}
+\bigl\[1-(1-y^{\alpha})^{\beta}\bigr\]^{\gamma\lambda-1}
+\Bigl\\1-\bigl\[1-(1-y^{\alpha})^{\beta}\bigr\]^{\lambda}\Bigr\\^{\delta}
+
+with \alpha,\beta,\gamma,\lambda\>0 and \delta\ge0. Unusually for a
+five-parameter family, its quantile function is closed form. With
+z\_\tau=\texttt{qbeta}(\tau,\gamma,\delta+1),
+
+Q(\tau)=\Bigl\\1-\bigl\[1-z\_\tau^{1/\lambda}\bigr\]^{1/\beta}\Bigr\\^{1/\alpha}.
+
+``` r
+
+g <- expand.grid(t = c(.05, .5, .95), a = c(.5, 2), b = c(.7, 3),
+                 gm = c(.8, 2), d = c(0, 2), L = c(.6, 2))
+max(abs(gkwq_quantile(g$t, g$a, g$b, g$gm, g$d, g$L) -
+        gkwdist::qgkw(g$t, g$a, g$b, g$gm, g$d, g$L)))
+#> [1] 2.879641e-15
+```
+
+Now fix \tau, set \mu = Q(\tau), and rearrange. The master identity is
+
+\mu^{\alpha}=1-\bigl(1-z\_\tau^{1/\lambda}\bigr)^{1/\beta},
+
+and three of the five parameters can be solved for in closed form:
+
+\alpha=\frac{\log\bigl(1-(1-z\_\tau^{1/\lambda})^{1/\beta}\bigr)}{\log\mu},
+\quad
+\beta=\frac{\log\bigl(1-z\_\tau^{1/\lambda}\bigr)}{\log(1-\mu^{\alpha})},
+\quad \lambda=\frac{\log
+z\_\tau}{\log\bigl(1-(1-\mu^{\alpha})^{\beta}\bigr)}.
+
+Each is a **ratio of two logarithms of quantities in (0,1)**, hence
+strictly positive and finite for every \mu,\tau\in(0,1) and every
+admissible value of the rest. That is not a cosmetic property: it is why
+the optimizer needs no box constraints anywhere.
+
+### It contains the prior art exactly
+
+Set \gamma=1, \delta=0, \lambda=1. Then z\_\tau=\tau and the \beta-solve
+becomes
+
+\beta=\frac{\log(1-\tau)}{\log(1-\mu^{\alpha})},
+
+which is the Kumaraswamy quantile reparametrization of Mitnik and Baek
+(2013), and the `kum` family of `unitquantreg`. The general formula
+*contains* the established result as its two-parameter slice:
+
+``` r
+
+anchor <- getFromNamespace(".gkwq_anchor_value", "gkwqreg")
+mu <- 0.35; tau <- 0.25; a <- 1.8
+c(general = anchor("beta", mu, tau, alpha = a, gamma = 1, delta = 0,
+                   lambda = 1, z_mode = 1L),
+  mitnik_baek = log1p(-tau) / log1p(-mu^a))
+#>     general mitnik_baek 
+#>    1.755897    1.755897
+```
+
+## Which parameter to anchor on
+
+\gamma and \delta admit no closed-form solve: they enter only through
+z\_\tau=I^{-1}\_\tau(\gamma,\delta+1), and inverting the regularized
+incomplete beta in its *shape* arguments has no elementary form. Every
+other family gets a closed form.
+
+``` r
+
+for (f in c("kw", "ekw", "kkw", "bkw", "gkw", "mc", "beta")) {
+  cat(sprintf("%-5s anchors: %-22s parts: %s\n", f,
+              paste(gkwq_anchors(f), collapse = ", "),
+              paste(gkwq_parts(f), collapse = " | ")))
+}
+#> kw    anchors: beta, alpha            parts: mu | alpha
+#> ekw   anchors: beta, alpha, lambda    parts: mu | alpha | lambda
+#> kkw   anchors: beta, alpha, lambda    parts: mu | alpha | delta | lambda
+#> bkw   anchors: beta, alpha            parts: mu | alpha | gamma | delta
+#> gkw   anchors: beta, alpha, lambda    parts: mu | alpha | gamma | delta | lambda
+#> mc    anchors: lambda                 parts: mu | gamma | delta
+#> beta  anchors: gamma                  parts: mu | delta
+```
+
+`mc` fixes \alpha=\beta=1, so neither is available and the \lambda-solve
+is forced. `beta` fixes \alpha=\beta=\lambda=1, leaving only
+\gamma,\delta; there \gamma is solved numerically. The \delta-solve is
+inadmissible: I\_\mu(\gamma,\delta+1) ranges only over \[\mu^\gamma, 1)
+as \delta sweeps \[0,\infty), so a root exists only when \tau \>
+\mu^{\gamma}, which nothing guarantees. The \gamma-solve always has one.
+
+## The finding that matters
+
+Here is the point of this vignette. **The anchor looks like a
+reparametrization and is not one, except under a specific condition.**
+
+Generate data under the \beta-anchor with a covariate in the quantile,
+and fit the same data three ways.
+
+``` r
+
+n <- 500
+x <- runif(n, -2, 2)
+mu <- plogis(0.4 + 1.1 * x)
+y <- gkwdist::rkw(n, alpha = 2, beta = log1p(-0.5) / log1p(-mu^2))
+d <- data.frame(y = y, x = x)
+
+compare <- function(form) {
+  fb <- gkwqreg(form, data = d, tau = 0.5, family = "kw", anchor = "beta")
+  fa <- gkwqreg(form, data = d, tau = 0.5, family = "kw", anchor = "alpha")
+  data.frame(
+    specification = deparse(form),
+    logLik_beta   = round(fb$loglik, 4),
+    logLik_alpha  = round(fa$loglik, 4),
+    gap           = signif(abs(fb$loglik - fa$loglik), 3),
+    b1_beta       = round(fb$coef_list$mu[[2]], 3),
+    b1_alpha      = round(fa$coef_list$mu[[2]], 3)
+  )
+}
+```
+
+| specification             | logLik_beta | logLik_alpha |    gap | b1_beta | b1_alpha |
+|:--------------------------|------------:|-------------:|-------:|--------:|---------:|
+| y ~ 1 (nuisance constant) |     17.3025 |      17.3025 |   0.00 |      NA |       NA |
+| y ~ x                     |    248.9130 |      89.2442 | 160.00 |   1.089 |    0.653 |
+| y ~ x \| x                |    250.5976 |     242.6106 |   7.99 |   1.058 |    1.044 |
+
+Read the `gap` column.
+
+- **Row 1**: the quantile is intercept-only and the nuisance parameter
+  is constant. The nuisance is *saturated relative to the quantile’s
+  predictor*, and the two anchors give the same likelihood to numerical
+  precision. Here the anchor genuinely is a reparametrization.
+- **Row 2**: the quantile varies with `x` while `alpha` is held
+  constant. The likelihoods now differ by a large margin, and so does
+  the coefficient of interest. These are **different models**, not
+  different parametrizations of one model.
+- **Row 3**: the nuisance is regressed on the same covariate. The gap
+  collapses and the coefficient of interest agrees closely.
+
+### The rule
+
+The anchor is a pure reparametrization — a bijection with identical
+likelihood — **if and only if the nuisance parameters are saturated
+relative to the predictor of the quantile.**
+
+Anchoring on \beta asserts “\alpha constant, \beta_i = f(\mu_i,\alpha)”.
+Anchoring on \alpha asserts the reverse. Those trace different paths
+through (\alpha_i,\beta_i) space, and the data can tell them apart.
+
+### What follows from it
+
+Two anchors on the same data give **non-nested models of equal
+dimension**. A likelihood-ratio test does not apply, and the package
+refuses to run one:
+
+``` r
+
+fb <- gkwqreg(y ~ x, data = d, tau = 0.5, family = "kw", anchor = "beta")
+fa <- gkwqreg(y ~ x, data = d, tau = 0.5, family = "kw", anchor = "alpha")
+anova(fb, fa)
+#> Error:
+#> ! models with different anchors cannot be compared by a likelihood-ratio test: they are non-nested models of equal dimension. Compare them by AIC, BIC or a Vuong test instead. Anchors seen: beta, alpha.
+```
+
+Use Vuong’s test instead:
+
+``` r
+
+vuong_test(fb, fa)
+#> 
+#> Vuong test for non-nested quantile regression fits
+#> tau = 0.5, BIC-corrected
+#>   model 1: kw / anchor beta
+#>   model 2: kw / anchor alpha
+#> 
+#>   z = 9.268, p-value = < 2.2e-16
+#>   model 1 is favoured
+```
+
+**The practical recommendation**: unless theory dictates an anchor,
+regress the remaining parameters on the same covariates as the quantile.
+Row 3 above is the evidence — it makes the answer largely independent of
+a choice you have no strong grounds to make.
+
+## Identifiability
+
+Three separate facts, each enforced in code.
+
+### `tau` is fixed, never estimated
+
+The profile likelihood in \tau is exactly flat: for any \tau' there is a
+parameter value reproducing the same distribution. \tau indexes the
+*question*, not the model.
+
+``` r
+
+f25 <- gkwqreg(y ~ 1, data = d, tau = 0.25, family = "kw")
+f75 <- gkwqreg(y ~ 1, data = d, tau = 0.75, family = "kw")
+c(tau_0.25 = f25$loglik, tau_0.75 = f75$loglik)
+#> tau_0.25 tau_0.75 
+#> 17.30253 17.30253
+```
+
+### \delta=0 confounds \gamma and \lambda
+
+When \delta=0, I_u(\gamma,1)=u^{\gamma}, so F(y)=v^{\gamma\lambda} and
+only the **product** is identified:
+
+``` r
+
+yv <- c(.2, .5, .8)
+max(abs(gkwdist::pgkw(yv, 1.5, 2, 3, 0, 0.7) -     # gamma*lambda = 2.1
+        gkwdist::pgkw(yv, 1.5, 2, 0.7, 0, 3)))     # gamma*lambda = 2.1
+#> [1] 5.551115e-17
+```
+
+The \lambda-anchor is therefore inadmissible whenever \delta=0 with
+\gamma free, because the quantile coefficients themselves become
+unidentified. The package errors rather than warns. The default
+\beta-anchor is immune.
+
+### The full `gkw` model is weakly identified
+
+In *any* parametrization, with information-matrix condition numbers of
+order 10^{8}–10^{11}. `family = "gkw"` warns, and
+[`summary()`](https://rdrr.io/r/base/summary.html) reports the condition
+number so you can judge for yourself. More parameters is not
+automatically better.
+
+## A numerical note worth knowing about
+
+Four of the seven families need
+z\_\tau=\texttt{qbeta}(\tau,\gamma,\delta+1) inside the
+automatic-differentiation tape, differentiated with respect to its shape
+arguments. TMB ships exactly that, and its shape derivatives are
+silently wrong: at `TMB/include/tiny_ad/beta/toms708.cpp:341` the second
+shape is reduced by its integer part and, when the remainder is exactly
+zero, a **literal** is assigned to an AD variable, severing the
+derivative chain. The consequence is that `d/ddelta` comes back as
+exactly `0` whenever \delta+1 is a whole number at or above a
+branch-dependent threshold — and an optimizer reading a zero gradient
+leaves \delta where it started and reports convergence.
+
+`gkwqreg` therefore ships its own incomplete-beta atomic
+(`inst/include/gkwq_atomic.hpp`), with \partial I/\partial p and
+\partial I/\partial q from a series expansion.
+[`vignette("gkwqreg-design")`](https://evandeilton.github.io/gkwqreg/articles/gkwqreg-design.md)
+sets out the reasoning and demonstrates the corrected derivatives live;
+the unit test that pins them is `V10` in
+`tests/testthat/test-gradient.R`.
+
+Families `kw`, `ekw` and `kkw` never touch that code path at all: for
+them z\_\tau is either \tau itself or the elementary
+1-(1-\tau)^{1/(\delta+1)}.
+
+## References
+
+- Carrasco, J. M. F., Ferrari, S. L. P. and Cordeiro, G. M. (2010). A
+  New Generalized Kumaraswamy Distribution. arXiv:1004.0911.
+- Mitnik and Baek (2013). *Statistical Papers* **54**, 177–192.
+- Cox, D. R. and Reid, N. (1987). Parameter orthogonality and
+  approximate conditional inference. *JRSS-B* **49**(1), 1-18.
+- Boik, R. J. and Robison-Cox, J. F. (1998). Derivatives of the
+  incomplete beta function. *Journal of Statistical Software* **3**(1),
+  1-20.

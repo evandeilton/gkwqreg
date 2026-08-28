@@ -1,0 +1,456 @@
+# Design notes: the vocabulary and the four decisions
+
+Software is easier to use, and much easier to trust, when its words mean
+one thing and its awkward choices are written down. This document is
+both halves: the vocabulary the package commits to, and the four
+decisions a reader is most likely to look at and wonder *why on earth
+did they do it that way?*
+
+It is not a tutorial. For that, start with
+[`vignette("gkwqreg")`](https://evandeilton.github.io/gkwqreg/articles/gkwqreg.md);
+for the mathematics of the reparametrization,
+[`vignette("gkwqreg-anchor")`](https://evandeilton.github.io/gkwqreg/articles/gkwqreg-anchor.md).
+
+------------------------------------------------------------------------
+
+## Part I — The vocabulary
+
+Terms are defined by what they **are**, not what they do. Where several
+words exist for one concept, the package picks one and the alternatives
+are listed as *avoid* — not because they are wrong in general, but
+because using two words for one thing is how documentation starts lying.
+
+### The quantile
+
+**Quantile level.** The probability `tau` in `(0,1)` that indexes the
+question being asked. It is supplied by the analyst, never estimated,
+and never enters the parameter vector. *Avoid*: quantile (on its own),
+percentile, alpha, p.
+
+That `tau` is not estimable is a property of the model, not a
+convention. The profile likelihood in `tau` is exactly flat: for any
+other level there is a parameter value reproducing the same
+distribution, so the data cannot distinguish them.
+
+``` r
+
+n <- 400
+x <- runif(n, -2, 2)
+mu <- plogis(0.4 + 1.1 * x)
+y <- gkwdist::rkw(n, alpha = 2, beta = log1p(-0.5) / log1p(-mu^2))
+d <- data.frame(y = y, x = x)
+
+c(tau_0.25 = gkwqreg(y ~ 1, data = d, tau = 0.25, family = "kw")$loglik,
+  tau_0.75 = gkwqreg(y ~ 1, data = d, tau = 0.75, family = "kw")$loglik)
+#> tau_0.25 tau_0.75 
+#> 13.68721 13.68721
+```
+
+Identical to numerical precision. `tau` indexes the *question*, not the
+model.
+
+**Conditional quantile.** `mu_tau(x)`, the value the response falls
+below with probability `tau` given covariates `x`. It is the regression
+target and the value
+[`fitted()`](https://rdrr.io/r/stats/fitted.values.html) returns.
+*Avoid*: mu (on its own — it collides with the mean), location, fitted
+mean, prediction.
+
+``` r
+
+fit <- gkwqreg(y ~ x, data = d, tau = 0.9, family = "kw")
+c(coverage = mean(fit$y <= fitted(fit)), target = 0.9)
+#> coverage   target 
+#>     0.89     0.90
+```
+
+**Quantile odds.** `mu_tau / (1 - mu_tau)`. Under the default logit
+link, exponentiating a coefficient of the conditional quantile gives a
+multiplicative effect on *this* quantity — not on the odds of an event,
+and not on a mean. *Avoid*: odds ratio, relative risk.
+
+**Pinball loss.** Mean of `(y - q)(tau - 1{y < q})` over the sample. The
+loss a quantile estimate actually targets, and the criterion for
+comparing families out of sample. *Avoid*: check loss, quantile loss,
+tick loss.
+
+``` r
+
+c(pinball = pinball(fit),
+  from_residuals = mean(residuals(fit, type = "check")))
+#>        pinball from_residuals 
+#>     0.02896289     0.02896289
+```
+
+### The reparametrization
+
+**Anchor.** The parameter eliminated from the family and replaced by the
+conditional quantile. A modeling choice, not an internal detail: two
+anchors on the same data are different models of equal dimension unless
+the nuisance parameters are saturated. *Avoid*: pivot, eliminated
+parameter, reparametrization target, solve-for.
+
+**Anchor solve.** The closed-form expression giving the anchor from the
+conditional quantile, the quantile level and the nuisance parameters.
+Always a ratio of two negative logarithms, hence strictly positive
+without any box constraint. *Avoid*: inversion, back-transform, link.
+
+That last clause is the load-bearing one. For the Kumaraswamy the solve
+is `beta = log(1 - tau) / log(1 - mu^alpha)`: both logarithms are
+negative for any `mu, tau` in `(0,1)`, so their ratio is positive by
+construction and the optimizer needs no constraint anywhere.
+
+**Nuisance parameter.** Any family parameter that is neither the anchor
+nor the conditional quantile. Modelable in its own right; *nuisance*
+names its role in this parametrization, not its importance. *Avoid*:
+shape parameter, dispersion, precision, ancillary.
+
+**Saturated.** Said of the nuisance parameters when each is regressed on
+at least the covariates used for the conditional quantile. Under
+saturation, and only then, the anchor choice is a pure reparametrization
+with identical likelihood. *Avoid*: full model, unrestricted, fully
+specified.
+
+### The family
+
+**Family.** One of the seven members of the Generalized Kumaraswamy
+lattice: `gkw`, `bkw`, `kkw`, `ekw`, `mc`, `kw`, `beta`. Members are
+genuinely nested, so likelihood-ratio tests compare them. *Avoid*:
+distribution, model, link family, sub-model.
+
+The nesting is a real containment, not a family resemblance, so a larger
+family can never fit worse:
+
+``` r
+
+ll <- vapply(c("kw", "ekw", "kkw", "bkw", "gkw"), function(f) {
+  suppressWarnings(gkwqreg(y ~ x, data = d, tau = 0.5, family = f))$loglik
+}, numeric(1))
+round(ll, 4)
+#>       kw      ekw      kkw      bkw      gkw 
+#> 187.6676 187.6865 187.8980 187.6865 188.0378
+```
+
+**Part.** One component of the multi-part formula, naming a parameter
+that carries its own linear predictor. Part one is always the
+conditional quantile; the rest follow family order with the anchor
+removed. *Avoid*: component, submodel, equation, block.
+
+``` r
+
+for (f in c("kw", "ekw", "gkw", "mc", "beta")) {
+  cat(sprintf("%-5s %s\n", f, paste(gkwq_parts(f), collapse = " | ")))
+}
+#> kw    mu | alpha
+#> ekw   mu | alpha | lambda
+#> gkw   mu | alpha | gamma | delta | lambda
+#> mc    mu | gamma | delta
+#> beta  mu | delta
+```
+
+### Across quantile levels
+
+**Quantile process.** The collection of fits over a grid of quantile
+levels, and the coefficient paths it traces. Each level is a separate
+likelihood, so each fit keeps its own log-likelihood and covariance.
+*Avoid*: multi-tau model, quantile curve, joint fit.
+
+The package enforces this rather than trusting the reader to remember
+it:
+
+``` r
+
+fits <- gkwqreg(y ~ x, data = d, tau = c(0.25, 0.5, 0.75), family = "kw")
+logLik(fits)
+#> Error:
+#> ! a `gkwqregs` container holds one likelihood per tau, and they are not comparable or additive. Take logLik() of an individual fit, e.g. logLik(object$fits[[1]]).
+```
+
+**Crossing.** Fitted conditional quantiles that fail to increase with
+the quantile level. Possible across independent fits; impossible within
+one fit, whose quantiles are those of a proper distribution function.
+*Avoid*: monotonicity violation, inversion, non-monotone quantiles.
+
+------------------------------------------------------------------------
+
+## Part II — The four decisions
+
+Each of these was a genuine fork with a defensible alternative. They are
+recorded because a future reader will otherwise reasonably assume the
+opposite was intended.
+
+### Decision 1 — The anchor is a public modeling argument
+
+Eliminating a parameter in favour of the conditional quantile looks like
+a reparametrization, and under saturated nuisance parameters it is one:
+the likelihood is identical whichever parameter is anchored. It stops
+being one the moment the conditional quantile varies with covariates
+while a nuisance parameter is held homogeneous.
+
+Anchoring on `beta` asserts *“`alpha` constant,
+`beta_i = f(mu_i, alpha)`”*. Anchoring on `alpha` asserts the reverse.
+Those trace different paths through parameter space, and the data can
+tell them apart:
+
+``` r
+
+rows <- lapply(list(`y ~ 1     (nuisance constant)`  = y ~ 1,
+                    `y ~ x     (nuisance constant)`  = y ~ x,
+                    `y ~ x | x (nuisance saturated)` = y ~ x | x),
+  function(f) {
+    b <- gkwqreg(f, data = d, tau = 0.5, family = "kw", anchor = "beta")
+    a <- gkwqreg(f, data = d, tau = 0.5, family = "kw", anchor = "alpha")
+    data.frame(logLik_beta = round(b$loglik, 3),
+               logLik_alpha = round(a$loglik, 3),
+               gap = signif(abs(b$loglik - a$loglik), 3))
+  })
+knitr::kable(do.call(rbind, rows))
+```
+
+|                                 | logLik_beta | logLik_alpha |     gap |
+|:--------------------------------|------------:|-------------:|--------:|
+| y ~ 1 (nuisance constant)       |      13.687 |       13.687 |   0.000 |
+| y ~ x (nuisance constant)       |     187.668 |       83.937 | 104.000 |
+| y ~ x \| x (nuisance saturated) |     188.054 |      188.230 |   0.177 |
+
+Read the `gap` column. It is zero in the first row, where the quantile
+has no covariates and the nuisance is trivially saturated. It is
+enormous in the second, where the quantile varies with `x` while `alpha`
+is held constant. It collapses again in the third, once `alpha` is
+regressed on the same covariate — not to exactly zero, because the two
+fits still stop at slightly different points on a very flat surface, but
+to a difference of no practical consequence.
+
+**The rule.** The anchor is a pure reparametrization — a bijection with
+identical likelihood — *if and only if* the nuisance parameters are
+saturated relative to the predictor of the conditional quantile.
+
+**Consequences the package enforces.** `anchor` is an argument of
+[`gkwqreg()`](https://evandeilton.github.io/gkwqreg/reference/gkwqreg.md),
+defaulted per family and printed by
+[`summary()`](https://rdrr.io/r/base/summary.html). Two anchors give
+non-nested models of *equal dimension*, so a likelihood-ratio test does
+not apply and [`anova()`](https://rdrr.io/r/stats/anova.html) refuses to
+run one:
+
+``` r
+
+fb <- gkwqreg(y ~ x, data = d, tau = 0.5, family = "kw", anchor = "beta")
+fa <- gkwqreg(y ~ x, data = d, tau = 0.5, family = "kw", anchor = "alpha")
+anova(fb, fa)
+#> Error:
+#> ! models with different anchors cannot be compared by a likelihood-ratio test: they are non-nested models of equal dimension. Compare them by AIC, BIC or a Vuong test instead. Anchors seen: beta, alpha.
+```
+
+`vuong_test(fb, fa)` is the right tool. And the practical advice, which
+the third row above is the evidence for: regress the nuisance parameters
+on the same covariates as the quantile, and the answer stops depending
+on a choice you have no grounds to make.
+
+**The alternative we rejected** was hiding the anchor as an
+implementation detail and choosing it for the user. That would have been
+defensible if it were a reparametrization. It is not.
+
+### Decision 2 — The package ships its own incomplete-beta atomic
+
+Four of the seven families need `z_tau = qbeta(tau, gamma, delta + 1)`
+inside the automatic-differentiation tape, differentiated with respect
+to its **shape** arguments. TMB ships exactly that, with reverse-mode
+derivatives via the implicit function theorem. It is silently wrong.
+
+At `TMB/include/tiny_ad/beta/toms708.cpp:337-342` the second shape
+argument is reduced by its integer part:
+
+``` c
+n = (int) trunc(b0);
+b0 -= n;
+if (b0 == 0.) { --n; b0 = 1.; }
+```
+
+That last statement assigns a **literal** to an AD variable, severing
+the derivative chain. TMB’s `qbeta` atomic obtains its shape partials
+from that same `pbeta`, so it inherits the defect. Reproduced against
+`numDeriv` at `p = 0.37` during development: `d/ddelta` comes back as
+**exactly 0** whenever `delta + 1` is a whole number at or above a
+branch-dependent threshold — 2 for `gamma = 3`, 3 for `gamma = 1.6` —
+while `d/dgamma` is correct throughout.
+
+The consequence is not a crash. An optimizer reading a zero gradient
+concludes it is at an optimum in that coordinate, leaves `delta` at its
+starting value, and reports convergence. The fit looks clean and is
+wrong.
+
+So `inst/include/gkwq_atomic.hpp` supplies `dI/dp` and `dI/dq` from a
+series expansion of the regularized incomplete beta, with the standard
+reflection rule and a branch-free digamma, wrapped in two
+`TMB_ATOMIC_STATIC_FUNCTION` atomics. Validated against `numDeriv` over
+720 shape and argument combinations: maximum error `7.5e-11` on the
+derivatives, `7.4e-15` on the value, median 17 iterations.
+
+Here is the check, run live, through the public interface. A fitted
+`bkw` model carries its TMB object, whose gradient can be evaluated at
+**any** parameter value. The fit itself is incidental here — it exists
+only to build the tape. The derivative is then evaluated at a fixed,
+well-conditioned point of our choosing, with `delta + 1` placed exactly
+on the whole numbers that break TMB’s own version:
+
+``` r
+
+dg <- data.frame(y = gkwdist::rgkw(300, 1.5, 2.0, 1.3, 1.0, 1.0),
+                 x = runif(300, -1, 1))
+fb <- suppressWarnings(gkwqreg(y ~ x, data = dg, tau = 0.5, family = "bkw"))
+
+## A fixed evaluation point, NOT wherever the optimizer stopped. Evaluating at
+## an estimate would make the demonstration depend on the optimizer, and a
+## degenerate fit sits inside the numerical guards where a finite difference and
+## an exact derivative legitimately disagree.
+p <- c("mu:(Intercept)"    = 0,          "mu:x"              = 0.5,
+       "alpha:(Intercept)" = log(1.5),   "gamma:(Intercept)" = log(1.3),
+       "delta:(Intercept)" = 0)
+i <- match("delta:(Intercept)", names(p))
+
+out <- t(vapply(c(1, 2, 3, 4), function(delta) {
+  p[[i]] <- log(delta)                    # delta + 1 = 2, 3, 4, 5 exactly
+  ad <- as.numeric(fb$obj$gr(p))
+  nd <- numDeriv::grad(fb$obj$fn, p)
+  c(`delta+1` = delta + 1, AD = ad[i], numDeriv = nd[i],
+    rel_err = max(abs(ad - nd)) / max(1, max(abs(nd))))
+}, numeric(4)))
+knitr::kable(out, digits = c(0, 6, 6, 10))
+```
+
+| delta+1 |        AD |  numDeriv |  rel_err |
+|--------:|----------:|----------:|---------:|
+|       2 | -0.048891 | -0.048891 | 1.10e-09 |
+|       3 | -0.034781 | -0.034781 | 1.80e-09 |
+|       4 | -0.023812 | -0.023812 | 2.10e-08 |
+|       5 | -0.016961 | -0.016961 | 3.58e-08 |
+
+The `AD` column is non-zero and agrees with `numDeriv` to nine or ten
+digits. With TMB’s built-in `qbeta` supplying the shape partials it
+would read `0.000000` in every row, and nothing would announce it.
+
+**The alternatives.** Nudging whole-number shapes by `1e-8` in the
+starting values is verified to restore correct derivatives and is far
+less code — but it protects only the starting point, and nothing stops
+the optimizer from landing on a whole number later, where the failure is
+silent again. Boik and Robison-Cox (1998) is the reference algorithm and
+additionally yields second derivatives, but it is an order of magnitude
+more code and Decision 4 means second-order AD is never needed. The
+series is the smallest thing that is actually correct everywhere.
+
+**Families `kw`, `ekw` and `kkw` never touch this code path.** For them
+`z_tau` is either `tau` itself or the elementary
+`1 - (1-tau)^(1/(delta+1))`, which is why those three carry no
+differentiation risk at all.
+
+### Decision 3 — Depend on `gkwdist`, suggest `gkwreg`, and do not inherit
+
+`gkwreg` fits the same seven families and owns roughly 400 to 600 lines
+of formula, link and model-frame plumbing that this package would
+otherwise rewrite. Every line of it is a dot-prefixed internal, so
+reusing it means either `gkwreg:::` — a check NOTE that CRAN rejects for
+new submissions — or growing `gkwreg`’s public API with functions that
+exist only to serve a sibling. `gkwdist` is already the shared
+distribution kernel, carries no regression opinions, and keeps the
+dependency graph acyclic.
+
+Class `gkwqreg` therefore does **not** inherit from `gkwreg`.
+Inheritance would make every missing method silently dispatch mean
+semantics on a quantile object, and the most dangerous case is
+[`fitted()`](https://rdrr.io/r/stats/fitted.values.html):
+
+``` r
+
+c(quantile_0.9 = mean(fitted(fit)),
+  mean         = mean(fitted(fit, type = "mean")))
+#> quantile_0.9         mean 
+#>    0.7799887    0.5328850
+```
+
+Those are different quantities. A missing method must error, not guess.
+
+**The cost, stated plainly.** The plumbing is reimplemented rather than
+shared, so the two packages can drift. That is accepted:
+cross-validation tests under `skip_if_not_installed("gkwreg")` catch
+drift where it matters, and promoting the shared layer into `gkwdist`
+remains open as a later move.
+
+### Decision 4 — One template compiled at install time, and `optimHess` for observed information
+
+`gkwreg` ships seven TMB templates and compiles them at **run** time.
+That needs a C++ toolchain on the user’s machine — which CRAN Windows
+and macOS binary users do not have — and costs 40 to 90 seconds per
+family inside `R CMD check`.
+
+This package ships a single generic template taking `DATA_INTEGER` codes
+for the family and the anchor, compiled into `src/` at install time. A
+family branch is free at run time because TMB tapes only the executed
+path, and one translation unit keeps install time within CRAN’s budget.
+Dropping Rcpp removes `RcppArmadillo` from `LinkingTo` and the
+`R_init_gkwqreg` / `TMB_LIB_INIT` double-registration clash.
+
+Nothing in the template switches on a family *name*: the family arrives
+entirely as data, so `R/gkwqreg-families.R` is the single source of
+truth and adding a family costs a registry entry rather than a new
+template.
+
+The second half of this decision is about **observed information**. It
+comes from `optimHess` applied to the automatic-differentiation
+gradient, which is what `sdreport()` already does for models without
+random effects. Two tempting alternatives are both wrong here:
+
+- `obj$he()` would require second-order differentiation *through* the
+  incomplete-beta atomic, for `bkw`, `gkw` and `mc`.
+- The naive `J' H J` sandwich of the unreparametrized Hessian omits the
+  curvature term `sum_k g_k grad^2 theta_k` and is simply wrong in a
+  regression.
+
+Because the conditional quantile is **not** orthogonal to the remaining
+parameters in the Cox-Reid sense, the off-diagonal blocks matter and the
+full matrix is what gets reported.
+[`summary()`](https://rdrr.io/r/base/summary.html) prints the
+information matrix’s condition number so a weakly identified fit is
+visible rather than silent:
+
+``` r
+
+vapply(c("kw", "ekw", "gkw"), function(f) {
+  suppressWarnings(gkwqreg(y ~ x, data = d, tau = 0.5, family = f))$cond_number
+}, numeric(1))
+#>           kw          ekw          gkw 
+#> 6.015385e+00 9.664306e+01 2.423467e+07
+```
+
+------------------------------------------------------------------------
+
+## What these decisions cost
+
+Being explicit about the wins is easy; the trade-offs are the part worth
+writing down.
+
+| Decision | What it costs |
+|----|----|
+| Anchor is public | One more argument users must think about, and a default that can be wrong for their data |
+| Own atomic | ~250 lines of numerical code this package must maintain and keep tested |
+| No inheritance from `gkwreg` | Plumbing duplicated across two packages, which can drift |
+| One precompiled template | Install-time compilation, and a template driven by data rather than readable per-family code |
+
+Each is a deliberate trade, and the tests that hold them in place are
+`V6`/`V7` for the anchor, `V10` for the atomic, the
+[`fitted()`](https://rdrr.io/r/stats/fitted.values.html) semantics tests
+for inheritance, and the nesting-lattice test for the shared template.
+
+## References
+
+- Boik, R. J. and Robison-Cox, J. F. (1998). Derivatives of the
+  incomplete beta function. *Journal of Statistical Software* **3**(1),
+  1-20. (The journal’s own article page misspells the second author as
+  “Robinson-Cox”. “Robison-Cox” is the spelling in Crossref’s deposit
+  and on the author’s own faculty page at Montana State University; it
+  is the one used here.)
+- Cox, D. R. and Reid, N. (1987). Parameter orthogonality and
+  approximate conditional inference. *JRSS-B* **49**(1), 1-18.
+- Mitnik, P. A. and Baek, S. (2013). The Kumaraswamy distribution:
+  median-dispersion re-parameterizations for regression modeling and
+  simulation-based estimation. *Statistical Papers* **54**(1), 177-192.
