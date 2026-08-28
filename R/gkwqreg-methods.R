@@ -838,7 +838,16 @@ summary.gkwqreg <- function(object, level = 0.95,
   vt <- vcov_type %||% object$control$vcov_type
   V <- tryCatch(vcov(object, type = vt), error = function(e) object$vcov)
   cf <- object$coefficients
-  se <- if (is.null(V)) object$se else sqrt(pmax(diag(V), 0))
+  ## A non-positive diagonal entry means the information matrix was not
+  ## positive definite, so that coefficient has no standard error. Flooring the
+  ## variance at 0 instead reports se = 0, hence z = +-Inf and p = 0: a fit too
+  ## degenerate to have an interval reads as overwhelmingly significant. The
+  ## fit itself already returns NA here (R/gkwqreg-core.R), and the two must
+  ## not disagree.
+  se <- if (is.null(V)) object$se else {
+    d <- diag(V)
+    ifelse(d > 0, sqrt(d), NA_real_)
+  }
   names(se) <- names(cf)
   z <- cf / se
   p <- 2 * stats::pnorm(-abs(z))
