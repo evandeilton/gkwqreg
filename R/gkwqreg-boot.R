@@ -308,6 +308,15 @@ gkwq_boot <- function(object, R = 200L, type = c("pairs", "parametric"),
   n <- nrow(mf)
   ## Prior weights, if any, live in the model frame under "(weights)".
   wcol <- if ("(weights)" %in% names(mf)) as.numeric(mf[["(weights)"]]) else NULL
+  ## An `offset` ARGUMENT is resolved from the caller's environment when the
+  ## stored call is re-evaluated, so it comes back at its original length and
+  ## is added to resampled rows -- the weights defect below, in another guise.
+  ## offset() terms written inside the formula need no such care: they sit in
+  ## the model frame and are resampled with it. Recovering the argument on its
+  ## own therefore means subtracting those terms from the assembled mu offset.
+  ocol <- as.numeric(object$offsets[["mu"]]) -
+    .gkwq_part_offset(object$terms[["mu"]], mf, n)
+  if (all(ocol == 0)) ocol <- NULL
   p <- length(object$coefficients)
   resp <- names(mf)[1L]
 
@@ -332,6 +341,11 @@ gkwq_boot <- function(object, R = 200L, type = c("pairs", "parametric"),
     if (!is.null(wcol)) {
       d[[".gkwq_w"]] <- wcol[idx]
       cl_r$weights <- as.name(".gkwq_w")
+    }
+    cl_r$offset <- NULL
+    if (!is.null(ocol)) {
+      d[[".gkwq_o"]] <- ocol[idx]
+      cl_r$offset <- as.name(".gkwq_o")
     }
     f <- suppressWarnings(try(eval(cl_r, list(d = d), parent.frame()),
                               silent = TRUE))
