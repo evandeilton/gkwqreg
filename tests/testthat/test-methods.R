@@ -235,3 +235,35 @@ test_that("deviance residuals use a genuine supremum, not a relocation", {
   ## Sign must track which side of the fitted quantile the observation is on.
   expect_true(all(sign(r) == sign(f$y - fitted(f))))
 })
+
+test_that("a non-positive variance gives NA, never a standard error of zero", {
+  ## When the information matrix is not positive definite some coefficient has
+  ## no standard error. Flooring the variance at zero instead -- which
+  ## summary() did through sqrt(pmax(diag(V), 0)) -- reports se = 0, hence
+  ## z = +-Inf and p = 0: a fit too degenerate to carry an interval reads as
+  ## overwhelmingly significant. Seen on a gkw fit whose whole diagonal went
+  ## negative, where the fit reported NA for every coefficient and summary()
+  ## reported p = 0 for every one of them.
+  ##
+  ## The variance is injected rather than fished out of a badly conditioned
+  ## fit, so the case is identical on every platform and does not depend on
+  ## where an optimizer happened to stop.
+  f <- gkwqreg(y ~ x, data = sim_kw(n = 150), tau = 0.5, family = "kw")
+
+  ## The two paths through the package must agree in the ordinary case.
+  expect_equal(unname(summary(f)$coefficients[, "Std. Error"]),
+               unname(f$se), tolerance = 1e-12)
+
+  for (bad_var in c(-1e-8, 0)) {
+    bad <- f
+    bad$vcov[1L, 1L] <- bad_var
+    tab <- summary(bad)$coefficients
+    lab <- sprintf("variance = %g", bad_var)
+    expect_true(is.na(tab[1L, "Std. Error"]), label = paste("se is NA,", lab))
+    expect_true(is.na(tab[1L, "z value"]), label = paste("z is NA,", lab))
+    expect_true(is.na(tab[1L, "Pr(>|z|)"]), label = paste("p is NA,", lab))
+    ## and the coefficients with a usable variance are left alone
+    expect_true(all(is.finite(tab[-1L, "Std. Error"])),
+                label = paste("others unaffected,", lab))
+  }
+})

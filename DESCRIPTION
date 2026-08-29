@@ -18,7 +18,7 @@ Description: Fixed-level parametric quantile regression for bounded responses in
 License: MIT + file LICENSE
 URL: https://github.com/evandeilton/gkwqreg, https://evandeilton.github.io/gkwqreg/
 BugReports: https://github.com/evandeilton/gkwqreg/issues
-Depends: R (>= 3.5)
+Depends: R (>= 4.1)
 Imports: Formula, TMB, gkwdist, graphics, grDevices, numDeriv, stats, utils
 LinkingTo: TMB, RcppEigen
 Suggests: gkwreg, betareg, quantreg, unitquantreg, sandwich, lmtest,
