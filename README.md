@@ -192,10 +192,10 @@ They form a genuine nesting, so family selection is an ordinary likelihood-ratio
 
 ```r
 compare_families(fit, families = c("kw", "ekw", "beta"))
-#>   family anchor df    logLik       AIC    pinball converged
-#> 1     kw   beta  3 149.21283 -292.4257 0.02769714      TRUE
-#> 2    ekw   beta  4 149.36135 -290.7227 0.02769820      TRUE
-#> 3   beta  gamma  3  65.15314 -124.3063 0.03894886      TRUE
+#>   family anchor df   logLik       AIC       BIC    pinball converged
+#> 1     kw   beta  4 230.6209 -453.2418 -435.6540 0.02995121      TRUE
+#> 2    ekw   beta  5 230.8573 -451.7146 -429.7299 0.02995948      TRUE
+#> 3   beta  gamma  4 210.5077 -413.0155 -395.4278 0.03196525      TRUE
 ```
 
 Compare on `pinball` when choosing out of sample: check loss is what a quantile estimate
@@ -264,8 +264,10 @@ tests.
 - Under **misspecification** of the family, `quantreg::rq` stays consistent for the
   conditional quantile and this does not. That is the central trade-off of parametric
   quantile regression.
-- For a **median-only** model with no interest in shape, `unitquantreg` and `cdfquantreg`
-  are simpler and established.
+- For a **single quantile** from a wide catalogue of two-parameter families, with no need
+  for nested family selection or regressions on the shape, `unitquantreg` is simpler and
+  established — it is `tau`-indexed exactly as this package is. `cdfquantreg` covers
+  location and median models, which are not `tau`-indexed at all.
 - For **smooth or additive** quantile effects, `qgam` is the right tool.
 - The five-parameter `gkw` is weakly identified in any parametrization; the package warns
   and `summary()` reports the information matrix's condition number.

@@ -113,14 +113,22 @@ compare them.
 *Avoid*: distribution, model, link family, sub-model.
 
 The nesting is a real containment, not a family resemblance, so a larger family can never
-fit worse:
+fit worse **at its maximum**. The lattice is not a single chain, so the comparison has to
+be made along one:
 
 ```{r nesting}
 ll <- vapply(c("kw", "ekw", "kkw", "bkw", "gkw"), function(f) {
   suppressWarnings(gkwqreg(y ~ x, data = d, tau = 0.5, family = f))$loglik
 }, numeric(1))
-round(ll, 4)
+round(ll[c("kw", "ekw", "kkw", "gkw")], 4)   # one chain
+round(ll[c("kw", "bkw", "gkw")], 4)          # the other
 ```
+
+What is printed are optimizer outputs, not maxima, and the distinction is visible here:
+`gkw` lands below `kkw`, which containment forbids. That is not evidence against the
+lattice — it is the diagnostic that the five-parameter fit stopped short, which is
+exactly what the package warns about when it reports `gkw` as weakly identified. Read a
+violation of monotonicity as a message about the optimizer, never about the data.
 
 **Part.** One component of the multi-part formula, naming a parameter that carries its own
 linear predictor. Part one is always the conditional quantile; the rest follow family
