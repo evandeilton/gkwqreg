@@ -871,11 +871,18 @@ summary.gkwqreg <- function(object, level = 0.95,
     rq <- residuals(object, type = "quantile")
     ## Koenker-Machado style goodness of fit on the scale the quantile actually
     ## targets: check loss against the best constant quantile.
+    ## object$pinball comes from the tape, where it is weighted and divided by
+    ## sum(w). The null loss it is compared against, and the coverage reported
+    ## beside it, have to use the same weights: a Pseudo-R1 built from a
+    ## weighted numerator and an unweighted denominator is not a ratio of
+    ## anything. With unit weights this is the plain mean, as before.
+    w <- object$weights
+    if (is.null(w)) w <- rep(1, length(y))
     null_q <- stats::quantile(y, probs = object$tau, names = FALSE, type = 7)
     e0 <- y - null_q
-    pin0 <- mean(e0 * (object$tau - (e0 < 0)))
+    pin0 <- sum(w * e0 * (object$tau - (e0 < 0))) / sum(w)
     pseudo_r1 <- if (pin0 > 0) 1 - object$pinball / pin0 else NA_real_
-    coverage <- mean(y <= object$fitted.values)
+    coverage <- sum(w * (y <= object$fitted.values)) / sum(w)
     resid_summary <- stats::quantile(rq[is.finite(rq)], c(0, .25, .5, .75, 1),
                                      names = FALSE)
   }

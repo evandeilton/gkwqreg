@@ -295,3 +295,28 @@ test_that("a non-positive variance gives NA, never a standard error of zero", {
                 label = paste("others unaffected,", lab))
   }
 })
+
+test_that("summary() weights the loss it compares against the weighted pinball", {
+  ## object$pinball comes from the tape, where it is weighted and divided by
+  ## sum(w). summary() built its null loss and its coverage with plain means,
+  ## so Pseudo-R1 = 1 - pinball/pin0 had a weighted numerator over an
+  ## unweighted denominator whenever weights were supplied.
+  set.seed(17); n <- 200; x <- stats::runif(n)
+  d <- data.frame(y = stats::qbeta(stats::runif(n), 2 + x, 3), x = x,
+                  w = rep(c(1, 5), length.out = n))
+
+  fw <- gkwqreg(y ~ x, d, tau = 0.7, family = "kw", weights = w)
+  sw <- summary(fw)
+  expect_equal(sw$coverage,
+               sum(d$w * (fw$y <= fitted(fw))) / sum(d$w), tolerance = 1e-12)
+
+  null_q <- stats::quantile(fw$y, probs = 0.7, names = FALSE, type = 7)
+  e0 <- fw$y - null_q
+  pin0 <- sum(d$w * e0 * (0.7 - (e0 < 0))) / sum(d$w)
+  expect_equal(sw$pseudo_r1, 1 - fw$pinball / pin0, tolerance = 1e-12)
+
+  ## Unit weights must reproduce the plain means exactly.
+  f0 <- gkwqreg(y ~ x, d, tau = 0.7, family = "kw")
+  s0 <- summary(f0)
+  expect_equal(s0$coverage, mean(f0$y <= fitted(f0)), tolerance = 1e-12)
+})
