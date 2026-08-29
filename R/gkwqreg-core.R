@@ -892,8 +892,15 @@ gkwqreg <- function(formula, data, tau = 0.5,
     link = links, link_scale = scales,
     coefficients = cf, coef_list = coef_list,
     se = se, vcov = vc, hessian = hess, cond_number = kappa_I,
-    loglik = ll, npar = npar, nobs = n,
-    aic = -2 * ll + 2 * npar, bic = -2 * ll + log(n) * npar,
+    loglik = ll, npar = npar, nobs = n, nobs_eff = sum(md$weights),
+    aic = -2 * ll + 2 * npar,
+    ## Weights multiply the per-observation log-density, so w = 3 throughout is
+    ## the same likelihood as replicating every row three times: the effective
+    ## sample size is sum(w), not the number of rows. The BIC penalty has to sit
+    ## on the same scale as the log-likelihood it corrects, or a weighted fit is
+    ## penalised as though it saw a third of its evidence. With unit weights the
+    ## two coincide and nothing changes.
+    bic = -2 * ll + log(sum(md$weights)) * npar,
     fitted.values = as.numeric(rep$muVec),
     linear.predictors = stats::setNames(
       lapply(spec$parts, function(p) {
