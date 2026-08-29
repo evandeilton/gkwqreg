@@ -318,6 +318,7 @@ predict.gkwqreg <- function(object, newdata = NULL,
   }), object$parts)
 }
 
+#' @rdname gkwqregs-methods
 #' @export
 predict.gkwqregs <- function(object, newdata = NULL, ...) {
   out <- lapply(object$fits, predict, newdata = newdata, ...)

@@ -1006,6 +1006,10 @@ print.gkwqregs <- function(x, ...) {
 #' * `fitted()`: a numeric matrix with one row per observation and one column
 #'   per level, holding each fit's conditional quantiles.
 #' * `summary()`: a list of `"summary.gkwqreg"` objects, one per level.
+#' * `predict()`: a numeric matrix with one row per prediction and one column
+#'   per level, from each fit in turn.
+#' * `residuals()`: a numeric matrix with one row per observation and one column
+#'   per level.
 #' * `logLik()`: never returns; it raises an error explaining why.
 #'
 #' @seealso [gkwqreg()], [quantile_process()] for the quantile process on a

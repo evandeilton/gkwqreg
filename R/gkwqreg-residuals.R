@@ -270,6 +270,7 @@ residuals.gkwqreg <- function(object,
   stats::setNames(lapply(nm, function(p) object$parameter_vectors[[p]]), nm)
 }
 
+#' @rdname gkwqregs-methods
 #' @export
 residuals.gkwqregs <- function(object, ...) {
   out <- sapply(object$fits, residuals, ...)

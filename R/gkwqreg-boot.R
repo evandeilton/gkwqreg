@@ -380,6 +380,18 @@ gkwq_boot <- function(object, R = 200L, type = c("pairs", "parametric"),
     stop("fewer than two bootstrap replicates converged; the fit is too ",
          "unstable to bootstrap.", call. = FALSE)
   }
+  ## Anything between two and R was being dropped in silence. The survivors are
+  ## then a sample conditioned on having converged, and the bootstrap
+  ## distribution does not correct for that: the standard error and the
+  ## percentile interval both describe the well-behaved subset rather than the
+  ## estimator. n_ok records it, but a number nobody is told to look at is not a
+  ## warning.
+  if (sum(ok) < 0.9 * R) {
+    warning(R - sum(ok), " of ", R, " bootstrap replicates failed to converge ",
+            "and were dropped. The remaining ", sum(ok), " are conditioned on ",
+            "convergence, so the standard errors and percentile limits below ",
+            "describe that subset rather than the estimator.", call. = FALSE)
+  }
   V <- stats::cov(reps[ok, , drop = FALSE])
 
   structure(list(
