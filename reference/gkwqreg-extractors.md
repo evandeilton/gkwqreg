@@ -83,8 +83,11 @@ summary(object, level = 0.95, vcov_type = NULL, ...)
 
   The penalty per parameter in
   [`AIC()`](https://rdrr.io/r/stats/AIC.html). The default `k = 2` gives
-  the usual Akaike criterion; `k = log(nobs(object))` reproduces
-  [`BIC()`](https://rdrr.io/r/stats/AIC.html).
+  the usual Akaike criterion. `k = log(nobs(object))` reproduces
+  [`BIC()`](https://rdrr.io/r/stats/AIC.html) for an unweighted fit;
+  with prior weights the BIC penalty uses the effective sample size
+  `sum(w)` rather than the row count, because the weights multiply the
+  log-density and a weighted fit carries that much evidence.
 
 - formula.:
 
@@ -263,7 +266,7 @@ gkwq_parts("kw")                    # the part contract this fit obeys
 #> [1] "mu"    "alpha"
 formula(fit)
 #> y ~ x1 + x2 | x1
-#> <environment: 0x557c097050c0>
+#> <environment: 0x56399fa78c10>
 
 ## -- fit statistics, all at this one quantile level ----------------------
 c(logLik = as.numeric(logLik(fit)), df = attr(logLik(fit), "df"),
