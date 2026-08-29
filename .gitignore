@@ -15,3 +15,6 @@ inst/extdata/*.rds
 
 # site pkgdown gerado
 pkgdown-site/
+
+# figuras do knitr rodado fora do build de vinhetas
+figure/
