@@ -58,7 +58,10 @@
 #'   returns the whole stacked coefficient vector. `terms()` and
 #'   `model.matrix()` take exactly one part and default to `"mu"`.
 #' @param k The penalty per parameter in `AIC()`. The default `k = 2` gives the
-#'   usual Akaike criterion; `k = log(nobs(object))` reproduces `BIC()`.
+#'   usual Akaike criterion. `k = log(nobs(object))` reproduces `BIC()` for an
+#'   unweighted fit; with prior weights the BIC penalty uses the effective
+#'   sample size `sum(w)` rather than the row count, because the weights
+#'   multiply the log-density and a weighted fit carries that much evidence.
 #' @param level Confidence level stored on the `summary()` object for a caller
 #'   that wants it. The printed table reports estimates, standard errors and
 #'   p-values rather than an interval, so changing `level` does not change what
@@ -438,8 +441,12 @@ bread.gkwqreg <- function(x, ...) {
 #' @rdname gkwqreg-extractors
 #' @export
 logLik.gkwqreg <- function(object, ...) {
-  structure(object$loglik, df = object$npar, nobs = object$nobs,
-            class = "logLik")
+  ## The `nobs` attribute of a logLik exists so that BIC.default can build the
+  ## right penalty, and for a frequency-weighted likelihood that is sum(w).
+  ## nobs() itself keeps counting rows, because that is what sizes the
+  ## residuals, the scores and a simulated sample.
+  structure(object$loglik, df = object$npar,
+            nobs = object$nobs_eff %||% object$nobs, class = "logLik")
 }
 
 #' @rdname gkwqreg-extractors

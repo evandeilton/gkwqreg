@@ -320,3 +320,32 @@ test_that("summary() weights the loss it compares against the weighted pinball",
   s0 <- summary(f0)
   expect_equal(s0$coverage, mean(f0$y <= fitted(f0)), tolerance = 1e-12)
 })
+
+test_that("a frequency weight counts as the replication it is", {
+  ## Weights multiply the per-observation log-density, so w = 3 throughout is
+  ## the same likelihood as replicating every row three times -- the suite
+  ## already asserts the log-likelihood scales exactly. The BIC penalty was not
+  ## following: it used the row count while the log-likelihood was on the
+  ## sum(w) scale, so a weighted fit was penalised as though it had seen a
+  ## third of its evidence. Replication is the definition, so it is the oracle.
+  set.seed(4); n <- 300; x <- stats::runif(n)
+  d <- data.frame(y = stats::qbeta(stats::runif(n), 2 + x, 3), x = x)
+
+  fw <- gkwqreg(y ~ x, d, tau = 0.5, family = "kw", weights = rep(3, n))
+  fr <- gkwqreg(y ~ x, d[rep(seq_len(n), each = 3), ], tau = 0.5, family = "kw")
+
+  expect_equal(fw$loglik, fr$loglik, tolerance = 1e-5)
+  expect_equal(unname(coef(fw)), unname(coef(fr)), tolerance = 1e-6)
+  expect_equal(BIC(fw), BIC(fr), tolerance = 1e-4)
+  expect_equal(fw$nobs_eff, fr$nobs_eff)
+  expect_equal(unname(attr(logLik(fw), "nobs")), 3 * n)
+
+  ## nobs() keeps counting rows: it is what sizes the residuals and the scores.
+  expect_equal(nobs(fw), n)
+  expect_length(residuals(fw), n)
+
+  ## An unweighted fit is untouched, and there the two scales coincide.
+  f1 <- gkwqreg(y ~ x, d, tau = 0.5, family = "kw")
+  expect_equal(f1$nobs_eff, nobs(f1))
+  expect_equal(BIC(f1), -2 * f1$loglik + log(n) * f1$npar, tolerance = 1e-8)
+})

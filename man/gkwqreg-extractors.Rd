@@ -57,7 +57,10 @@ returns the whole stacked coefficient vector. \code{terms()} and
 original call. Unused by the other methods.}
 
 \item{k}{The penalty per parameter in \code{AIC()}. The default \code{k = 2} gives the
-usual Akaike criterion; \code{k = log(nobs(object))} reproduces \code{BIC()}.}
+usual Akaike criterion. \code{k = log(nobs(object))} reproduces \code{BIC()} for an
+unweighted fit; with prior weights the BIC penalty uses the effective
+sample size \code{sum(w)} rather than the row count, because the weights
+multiply the log-density and a weighted fit carries that much evidence.}
 
 \item{formula.}{A formula update specification for \code{update()}, in the sense
 of \code{\link[stats:update.formula]{stats::update.formula()}}, applied to the multi-part model formula.}

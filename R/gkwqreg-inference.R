@@ -528,7 +528,9 @@ vuong_test <- function(object, object2, correction = TRUE) {
          sQuote(object$anchor), "; a Vuong test compares two different models.",
          call. = FALSE)
   }
-  n <- object$nobs
+  ## Same scale as the log-likelihood differences being averaged: loglik_i
+  ## carries w(i), so the n that scales their mean must be sum(w).
+  n <- object$nobs_eff %||% object$nobs
   m <- object$loglik_i - object2$loglik_i
   if (correction) {
     m <- m - (object$npar - object2$npar) * log(n) / (2 * n)
