@@ -59,8 +59,10 @@
 #'   `model.matrix()` take exactly one part and default to `"mu"`.
 #' @param k The penalty per parameter in `AIC()`. The default `k = 2` gives the
 #'   usual Akaike criterion; `k = log(nobs(object))` reproduces `BIC()`.
-#' @param level Confidence level recorded by `summary()` and used when its
-#'   result is printed or post-processed.
+#' @param level Confidence level stored on the `summary()` object for a caller
+#'   that wants it. The printed table reports estimates, standard errors and
+#'   p-values rather than an interval, so changing `level` does not change what
+#'   `print()` shows; use [confint()] for an interval at a chosen level.
 #' @param vcov_type Which covariance estimator `summary()` should use for its
 #'   standard errors, one of `"expected"`, `"observed"` or `"sandwich"`; see
 #'   [vcov.gkwqreg()]. `NULL`, the default, uses the type recorded in the fit's

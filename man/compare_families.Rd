@@ -21,9 +21,10 @@ Restricting it is often sensible: \code{"gkw"} is weakly identified in every
 parametrization and warns accordingly, and a family that cannot represent
 the data at all merely costs time.}
 
-\item{...}{Currently unused; present for future extension. Arguments given
-here do not reach \code{\link[=gkwqreg]{gkwqreg()}}. To vary anything other than the family,
-change it in \code{object} and call this function again.}
+\item{...}{Overrides applied to the stored call before each family is
+refitted. Anything valid for \code{\link[=gkwqreg]{gkwqreg()}} may be given, so a single
+\code{compare_families(fit, tau = 0.9)} refits every family at that level. The
+\code{family} argument itself is set per row and cannot be overridden here.}
 }
 \value{
 A data frame with one row per entry of \code{families}, ordered by increasing

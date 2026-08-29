@@ -155,14 +155,13 @@ simulate.gkwqreg <- function(object, nsim = 1L, seed = NULL, ...) {
 #' @param ... Unused; present for future extension.
 #'
 #' @details
-#' Each replicate re-evaluates the original call on the resampled data. Two
-#' arguments are stripped from that call because both refer to the original
-#' rows and would no longer be aligned: `subset`, which has already been
-#' applied in building the model frame, and `weights`. **A weighted fit is
-#' therefore bootstrapped unweighted**, and the bootstrap standard errors of
-#' such a fit describe a different estimator from the one that was fitted. An
-#' offset written into the formula with `offset()` lives in the model frame and
-#' does follow the resampling; one supplied as a free-standing vector does not.
+#' Each replicate re-evaluates the original call on the resampled data. Only
+#' `subset` is stripped from that call, having already been applied in building
+#' the model frame. Everything else that is indexed by observation is carried
+#' across and reindexed with the resampled rows: prior `weights`, an `offset`
+#' argument, and `offset()` terms written into any part of the formula. A
+#' weighted or offset fit is therefore bootstrapped as the estimator it
+#' actually is.
 #'
 #' @section Why pairs is the default:
 #' The whole bargain of parametric quantile regression is that it buys

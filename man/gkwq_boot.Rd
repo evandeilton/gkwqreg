@@ -61,14 +61,13 @@ information matrix that is barely positive definite, or simply a
 distributional assumption one would rather not lean on.
 }
 \details{
-Each replicate re-evaluates the original call on the resampled data. Two
-arguments are stripped from that call because both refer to the original
-rows and would no longer be aligned: \code{subset}, which has already been
-applied in building the model frame, and \code{weights}. \strong{A weighted fit is
-therefore bootstrapped unweighted}, and the bootstrap standard errors of
-such a fit describe a different estimator from the one that was fitted. An
-offset written into the formula with \code{offset()} lives in the model frame and
-does follow the resampling; one supplied as a free-standing vector does not.
+Each replicate re-evaluates the original call on the resampled data. Only
+\code{subset} is stripped from that call, having already been applied in building
+the model frame. Everything else that is indexed by observation is carried
+across and reindexed with the resampled rows: prior \code{weights}, an \code{offset}
+argument, and \code{offset()} terms written into any part of the formula. A
+weighted or offset fit is therefore bootstrapped as the estimator it
+actually is.
 }
 \section{Why pairs is the default}{
 

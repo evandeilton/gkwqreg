@@ -550,9 +550,10 @@ print.gkwq_vuong <- function(x, digits = 4, ...) {
 #'   Restricting it is often sensible: `"gkw"` is weakly identified in every
 #'   parametrization and warns accordingly, and a family that cannot represent
 #'   the data at all merely costs time.
-#' @param ... Currently unused; present for future extension. Arguments given
-#'   here do not reach [gkwqreg()]. To vary anything other than the family,
-#'   change it in `object` and call this function again.
+#' @param ... Overrides applied to the stored call before each family is
+#'   refitted. Anything valid for [gkwqreg()] may be given, so a single
+#'   `compare_families(fit, tau = 0.9)` refits every family at that level. The
+#'   `family` argument itself is set per row and cannot be overridden here.
 #'
 #' @details
 #' The stored call of `object` is re-evaluated once per family, with `family`
