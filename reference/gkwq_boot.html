@@ -145,14 +145,13 @@ standard errors and the percentile interval.</p>
     </div>
     <div class="section level2">
     <h2 id="details">Details<a class="anchor" aria-label="anchor" href="#details"></a></h2>
-    <p>Each replicate re-evaluates the original call on the resampled data. Two
-arguments are stripped from that call because both refer to the original
-rows and would no longer be aligned: <code>subset</code>, which has already been
-applied in building the model frame, and <code>weights</code>. <strong>A weighted fit is
-therefore bootstrapped unweighted</strong>, and the bootstrap standard errors of
-such a fit describe a different estimator from the one that was fitted. An
-offset written into the formula with <code><a href="https://rdrr.io/r/stats/offset.html" class="external-link">offset()</a></code> lives in the model frame and
-does follow the resampling; one supplied as a free-standing vector does not.</p>
+    <p>Each replicate re-evaluates the original call on the resampled data. Only
+<code>subset</code> is stripped from that call, having already been applied in building
+the model frame. Everything else that is indexed by observation is carried
+across and reindexed with the resampled rows: prior <code>weights</code>, an <code>offset</code>
+argument, and <code><a href="https://rdrr.io/r/stats/offset.html" class="external-link">offset()</a></code> terms written into any part of the formula. A
+weighted or offset fit is therefore bootstrapped as the estimator it
+actually is.</p>
     </div>
     <div class="section level2">
     <h2 id="why-pairs-is-the-default">Why pairs is the default<a class="anchor" aria-label="anchor" href="#why-pairs-is-the-default"></a></h2>

@@ -164,8 +164,9 @@ anova(fit_kw, fit_ekw)
 #> [2,]  5 218.70 -427.41 0.3199      1     0.5716
 ```
 
-For an out-of-sample choice, prefer check loss: it is the criterion a
-quantile estimate actually targets, whereas AIC compares likelihoods.
+For an out-of-sample choice, prefer the pinball loss: it is the
+criterion a quantile estimate actually targets, whereas AIC compares
+likelihoods.
 
 ``` r
 

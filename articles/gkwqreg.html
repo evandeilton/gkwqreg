@@ -215,8 +215,8 @@ applies:</p>
 <span><span class="co">#&gt;      Df logLik     AIC  Chisq Chi Df Pr(&gt;Chisq)</span></span>
 <span><span class="co">#&gt; [1,]  4 218.54 -429.09                         </span></span>
 <span><span class="co">#&gt; [2,]  5 218.70 -427.41 0.3199      1     0.5716</span></span></code></pre></div>
-<p>For an out-of-sample choice, prefer check loss: it is the criterion a
-quantile estimate actually targets, whereas AIC compares
+<p>For an out-of-sample choice, prefer the pinball loss: it is the
+criterion a quantile estimate actually targets, whereas AIC compares
 likelihoods.</p>
 <div class="sourceCode" id="cb7"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="fu"><a href="../reference/compare_families.html">compare_families</a></span><span class="op">(</span><span class="va">fit_kw</span>, families <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"kw"</span>, <span class="st">"ekw"</span>, <span class="st">"bkw"</span>, <span class="st">"beta"</span><span class="op">)</span><span class="op">)</span></span>

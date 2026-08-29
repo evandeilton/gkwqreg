@@ -103,9 +103,13 @@ summary(object, level = 0.95, vcov_type = NULL, ...)
 
 - level:
 
-  Confidence level recorded by
-  [`summary()`](https://rdrr.io/r/base/summary.html) and used when its
-  result is printed or post-processed.
+  Confidence level stored on the
+  [`summary()`](https://rdrr.io/r/base/summary.html) object for a caller
+  that wants it. The printed table reports estimates, standard errors
+  and p-values rather than an interval, so changing `level` does not
+  change what [`print()`](https://rdrr.io/r/base/print.html) shows; use
+  [`confint()`](https://rdrr.io/r/stats/confint.html) for an interval at
+  a chosen level.
 
 - vcov_type:
 
@@ -259,7 +263,7 @@ gkwq_parts("kw")                    # the part contract this fit obeys
 #> [1] "mu"    "alpha"
 formula(fit)
 #> y ~ x1 + x2 | x1
-#> <environment: 0x561329cd48a8>
+#> <environment: 0x557c097050c0>
 
 ## -- fit statistics, all at this one quantile level ----------------------
 c(logLik = as.numeric(logLik(fit)), df = attr(logLik(fit), "df"),

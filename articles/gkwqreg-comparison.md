@@ -6,8 +6,12 @@ Most of the confusion in this corner of the ecosystem comes from one
 word carrying three meanings.
 
 **1. Check-function quantile regression.** `quantreg`, `qgam`.
-Distribution-free, indexed by `tau`, no likelihood. Minimises the
-pinball loss directly.
+Distribution-free and indexed by `tau`: the target is the pinball loss
+rather than the shape of the response. `quantreg` minimises that loss
+directly. `qgam` replaces it with the extended log-F density and
+calibrates the resulting posterior, so it does carry a likelihood — but
+one chosen to reproduce the check function, not to describe the
+distribution.
 
 **2. Location- or median-parametrized models.** `cdfquantreg`, and
 `betareg`’s `predict(type = "quantile")`. A *single* fit whose location
@@ -83,24 +87,29 @@ d <- local({
 })
 anova(gkwqreg(y ~ x, data = d, tau = .5, family = "kw"),
       gkwqreg(y ~ x, data = d, tau = .5, family = "ekw"),
-      gkwqreg(y ~ x, data = d, tau = .5, family = "gkw"))
-#> Warning: family = "gkw" is weakly identified in any parametrization
-#> (information-matrix condition numbers of order 1e8 to 1e11). Consider a
-#> sub-family such as "ekw" or "kkw"; summary() reports the condition number so
-#> you can check.
+      gkwqreg(y ~ x, data = d, tau = .5, family = "kkw"))
 #> Warning in sqrt(d): NaNs produced
-#> Warning: the information matrix is not positive definite, so 2 standard
+#> Warning: the information matrix is not positive definite, so 1 standard
 #> error(s) are unavailable. This is the signature of a parameter drifting along a
 #> flat ridge; a smaller sub-family usually fixes it.
 #> Warning: the optimizer did not report convergence (code 1). Treat the estimates
 #> as provisional.
 #> Likelihood-ratio test for Generalized Kumaraswamy quantile regression
 #> tau = 0.5, anchor = beta
-#>      Df logLik     AIC   Chisq Chi Df Pr(>Chisq)
-#> [1,]  3 208.53 -411.05                          
-#> [2,]  4 208.70 -409.40  0.3470      1     0.5558
-#> [3,]  6 206.94 -401.87 -3.5258      2     1.0000
+#>      Df logLik     AIC  Chisq Chi Df Pr(>Chisq)
+#> [1,]  3 208.53 -411.05                         
+#> [2,]  4 208.70 -409.40 0.3470      1     0.5558
+#> [3,]  5 209.50 -409.01 1.6134      1     0.2040
 ```
+
+The chain matters: `kw` sits inside `ekw` sits inside `kkw`, and the
+test applies along a chain of containments, not between any two members.
+`ekw` and `bkw` both contain `kw` and neither contains the other, so
+[`anova()`](https://rdrr.io/r/stats/anova.html) returns `NA` for that
+comparison and says why. The five-parameter `gkw` is left out of the
+demonstration on purpose — it is weakly identified, its optimizer
+frequently stops short, and a log-likelihood that falls as the dimension
+rises reports the failure rather than a test.
 
 ## Against `quantreg`, under correct specification
 
@@ -192,12 +201,12 @@ which is meaning (2) above.
 library(betareg)
 data("GasolineYield", package = "betareg")
 
-bq <- betareg(yield ~ batch + temp, data = GasolineYield)
-gq <- gkwqreg(yield ~ batch + temp, data = GasolineYield, tau = 0.9, family = "kw")
-#> Warning in sqrt(d): NaNs produced
-#> Warning: the information matrix is not positive definite, so 1 standard
-#> error(s) are unavailable. This is the signature of a parameter drifting along a
-#> flat ridge; a smaller sub-family usually fixes it.
+## `batch` has ten levels against 32 observations. Both packages will fit that,
+## but the information matrix is then barely positive definite and gkwqreg
+## reports NA for the standard errors rather than pretending otherwise, which
+## makes it the wrong model for a comparison about standard errors.
+bq <- betareg(yield ~ temp, data = GasolineYield)
+gq <- gkwqreg(yield ~ temp, data = GasolineYield, tau = 0.9, family = "kw")
 
 ## betareg: the 0.9-quantile implied by a MEAN model
 q_breg <- qbeta(0.9, shape1 = predict(bq, type = "response") * predict(bq, type = "precision"),
@@ -207,18 +216,21 @@ c(coverage_betareg = mean(GasolineYield$yield <= q_breg),
   coverage_gkwqreg = mean(GasolineYield$yield <= fitted(gq)),
   target = 0.9)
 #> coverage_betareg coverage_gkwqreg           target 
-#>          0.90625          0.96875          0.90000
+#>          0.87500          0.84375          0.90000
 ```
 
-Both produce a number. Only one of them has a coefficient whose standard
-error refers to the 0.9-quantile:
+Both land near the target and `betareg` lands slightly closer here,
+which is worth saying plainly: with the family correctly specified, a
+mean model can imply perfectly good quantiles, and coverage on 32
+observations separates nothing. The difference that matters is not the
+fitted number but what the coefficients mean. Only one of these two has
+a coefficient whose standard error refers to the 0.9-quantile:
 
 ``` r
 
 round(summary(gq)$coefficients["mu:temp", ], 5)
-#> Warning in sqrt(d): NaNs produced
 #>   Estimate Std. Error    z value   Pr(>|z|) 
-#>    0.01179         NA         NA         NA
+#>    0.00838    0.00133    6.32103    0.00000
 ```
 
 In `betareg` the coefficient on `temp` describes the **mean**.
@@ -231,7 +243,10 @@ quantity is modelled directly.
 - Conditional distribution unknown or clearly outside the family →
   **`quantreg`**.
 - Smooth or additive quantile effects → **`qgam`**.
-- Median only, no interest in shape → **`unitquantreg`** or
+- A single `tau` from a wide catalogue of two-parameter families, with
+  no need for nested family selection or regressions on the shape →
+  **`unitquantreg`**.
+- A location or median model that is not `tau`-indexed at all →
   **`cdfquantreg`**.
 - A mean model that happens to also report quantiles → **`betareg`**,
   **`gkwreg`**.
@@ -245,16 +260,19 @@ quantity is modelled directly.
   **46**, 33–50.
 - Mitnik and Baek (2013). *Statistical Papers* **54**, 177–192.
 - Menezes, A. F. B. and Mazucheli, J. `unitquantreg`: Parametric
-  Quantile Regression Models for Bounded Data. R package. (the package
-  has no journal of record)
+  Quantile Regression Models for Bounded Data. R package.
+  [doi:10.32614/CRAN.package.unitquantreg](https://doi.org/10.32614/CRAN.package.unitquantreg)
+  (the package has no journal of record)
 - Mazucheli, J., Alves, B., Menezes, A. F. B. and Leiva, V. (2022). An
   overview on parametric quantile regression models and their
   computational implementation with applications to biomedical problems
   including COVID-19 data. *Computer Methods and Programs in
   Biomedicine* **221**, 106816.
+  [doi:10.1016/j.cmpb.2022.106816](https://doi.org/10.1016/j.cmpb.2022.106816)
 - Ferrari, S. L. P. and Cribari-Neto, F. (2004). Beta regression for
   modelling rates and proportions. *Journal of Applied Statistics*
   **31**(7), 799-815.
+  [doi:10.1080/0266476042000214501](https://doi.org/10.1080/0266476042000214501)
 - Chernozhukov, V., Fernández-Val, I. and Galichon, A. (2010). Quantile
   and probability curves without crossing. *Econometrica* **78**(3),
-  1093-1125.
+  1093-1125. [doi:10.3982/ECTA7880](https://doi.org/10.3982/ECTA7880)

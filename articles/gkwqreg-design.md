@@ -90,10 +90,13 @@ anchors on the same data are different models of equal dimension unless
 the nuisance parameters are saturated. *Avoid*: pivot, eliminated
 parameter, reparametrization target, solve-for.
 
-**Anchor solve.** The closed-form expression giving the anchor from the
-conditional quantile, the quantile level and the nuisance parameters.
-Always a ratio of two negative logarithms, hence strictly positive
-without any box constraint. *Avoid*: inversion, back-transform, link.
+**Anchor solve.** The expression giving the anchor from the conditional
+quantile, the quantile level and the nuisance parameters. For six of the
+seven families it is closed form — a ratio of two negative logarithms,
+hence strictly positive without any box constraint. The `beta` family is
+the exception: its anchor is `gamma`, the equation
+`I_mu(gamma, delta + 1) = tau` does not invert, and `gamma` comes from a
+one-dimensional root find. *Avoid*: inversion, back-transform, link.
 
 That last clause is the load-bearing one. For the Kumaraswamy the solve
 is `beta = log(1 - tau) / log(1 - mu^alpha)`: both logarithms are
@@ -119,17 +122,28 @@ genuinely nested, so likelihood-ratio tests compare them. *Avoid*:
 distribution, model, link family, sub-model.
 
 The nesting is a real containment, not a family resemblance, so a larger
-family can never fit worse:
+family can never fit worse **at its maximum**. The lattice is not a
+single chain, so the comparison has to be made along one:
 
 ``` r
 
 ll <- vapply(c("kw", "ekw", "kkw", "bkw", "gkw"), function(f) {
   suppressWarnings(gkwqreg(y ~ x, data = d, tau = 0.5, family = f))$loglik
 }, numeric(1))
-round(ll, 4)
-#>       kw      ekw      kkw      bkw      gkw 
-#> 187.6676 187.6865 187.8980 187.6865 188.0378
+round(ll[c("kw", "ekw", "kkw", "gkw")], 4)   # one chain
+#>       kw      ekw      kkw      gkw 
+#> 187.6676 187.6865 187.8980 187.6865
+round(ll[c("kw", "bkw", "gkw")], 4)          # the other
+#>       kw      bkw      gkw 
+#> 187.6676 187.6865 187.6865
 ```
+
+What is printed are optimizer outputs, not maxima, and the distinction
+is visible here: `gkw` lands below `kkw`, which containment forbids.
+That is not evidence against the lattice — it is the diagnostic that the
+five-parameter fit stopped short, which is exactly what the package
+warns about when it reports `gkw` as weakly identified. Read a violation
+of monotonicity as a message about the optimizer, never about the data.
 
 **Part.** One component of the multi-part formula, naming a parameter
 that carries its own linear predictor. Part one is always the
@@ -401,7 +415,8 @@ gradient, which is what `sdreport()` already does for models without
 random effects. Two tempting alternatives are both wrong here:
 
 - `obj$he()` would require second-order differentiation *through* the
-  incomplete-beta atomic, for `bkw`, `gkw` and `mc`.
+  incomplete-beta atomic, for `bkw`, `gkw`, `mc` and `beta` — the same
+  four named above.
 - The naive `J' H J` sandwich of the unreparametrized Hessian omits the
   curvature term `sum_k g_k grad^2 theta_k` and is simply wrong in a
   regression.
@@ -419,7 +434,7 @@ vapply(c("kw", "ekw", "gkw"), function(f) {
   suppressWarnings(gkwqreg(y ~ x, data = d, tau = 0.5, family = f))$cond_number
 }, numeric(1))
 #>           kw          ekw          gkw 
-#> 6.015385e+00 9.664306e+01 2.423467e+07
+#> 6.015385e+00 9.664306e+01 1.524682e+12
 ```
 
 ------------------------------------------------------------------------
@@ -445,7 +460,9 @@ for inheritance, and the nesting-lattice test for the shared template.
 
 - Boik, R. J. and Robison-Cox, J. F. (1998). Derivatives of the
   incomplete beta function. *Journal of Statistical Software* **3**(1),
-  1-20. (The journal’s own article page misspells the second author as
+  1-20.
+  [doi:10.18637/jss.v003.i01](https://doi.org/10.18637/jss.v003.i01)
+  (The journal’s own article page misspells the second author as
   “Robinson-Cox”. “Robison-Cox” is the spelling in Crossref’s deposit
   and on the author’s own faculty page at Montana State University; it
   is the one used here.)
@@ -454,3 +471,4 @@ for inheritance, and the nesting-lattice test for the shared template.
 - Mitnik, P. A. and Baek, S. (2013). The Kumaraswamy distribution:
   median-dispersion re-parameterizations for regression modeling and
   simulation-based estimation. *Statistical Papers* **54**(1), 177-192.
+  [doi:10.1007/s00362-011-0417-y](https://doi.org/10.1007/s00362-011-0417-y)

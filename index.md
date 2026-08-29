@@ -103,7 +103,7 @@ about one standard error. Line by line:
 | Line | What it tells you |
 |----|----|
 | `mu:` block | The quantile model. **These are effects on the log quantile odds**, not on a mean and not on the odds of an event |
-| `alpha:` block | A shape parameter. It controls the spread of the conditional distribution, not the quantile you are modelling |
+| `alpha:` block | A nuisance parameter. It controls the spread of the conditional distribution, not the quantile you are modelling |
 | `Anchored parameter` | Which parameter was eliminated to make room for the quantile. A **modeling choice** — see below |
 | `Empirical coverage` | Share of observations below the fitted quantile. Should sit at `tau`. **0.895 vs 0.900 — the model is doing its job** |
 | `Information condition number` | Conditioning. Small (here 31) is healthy; above `1e8` means the standard errors are unreliable |
@@ -187,8 +187,13 @@ vignette("gkwqreg-design")     # the vocabulary and the design decisions
 
 ## The seven families
 
-They form a genuine nesting, so family selection is an ordinary
-likelihood-ratio test.
+They form a nesting **lattice**, not a single chain, so a
+likelihood-ratio test applies along a chain of containments. `kw` sits
+inside all of `ekw`, `kkw`, `bkw` and `gkw`; `ekw` inside `kkw` and
+`gkw`; `beta` inside `mc`, `bkw` and `gkw`. But `ekw` and `bkw` contain
+neither each other, and [`anova()`](https://rdrr.io/r/stats/anova.html)
+returns `NA` with a warning for any such pair rather than reporting a
+test that does not apply.
 
 | family | free parameters | constraints   | default anchor |
 |--------|-----------------|---------------|----------------|
@@ -203,14 +208,14 @@ likelihood-ratio test.
 ``` r
 
 compare_families(fit, families = c("kw", "ekw", "beta"))
-#>   family anchor df    logLik       AIC    pinball converged
-#> 1     kw   beta  3 149.21283 -292.4257 0.02769714      TRUE
-#> 2    ekw   beta  4 149.36135 -290.7227 0.02769820      TRUE
-#> 3   beta  gamma  3  65.15314 -124.3063 0.03894886      TRUE
+#>   family anchor df   logLik       AIC       BIC    pinball converged
+#> 1     kw   beta  4 230.6209 -453.2418 -435.6540 0.02995121      TRUE
+#> 2    ekw   beta  5 230.8573 -451.7146 -429.7299 0.02995948      TRUE
+#> 3   beta  gamma  4 210.5077 -413.0155 -395.4278 0.03196525      TRUE
 ```
 
-Compare on `pinball` when choosing out of sample: check loss is what a
-quantile estimate actually targets.
+Compare on `pinball` when choosing out of sample: the pinball loss is
+what a quantile estimate actually targets.
 
 ## The anchor is a modeling choice
 
@@ -283,8 +288,11 @@ families are mutually non-nested and need Vuong tests, while here
   [`quantreg::rq`](https://rdrr.io/pkg/quantreg/man/rq.html) stays
   consistent for the conditional quantile and this does not. That is the
   central trade-off of parametric quantile regression.
-- For a **median-only** model with no interest in shape, `unitquantreg`
-  and `cdfquantreg` are simpler and established.
+- For a **single quantile** from a wide catalogue of two-parameter
+  families, with no need for nested family selection or regressions on
+  the shape, `unitquantreg` is simpler and established — it is
+  `tau`-indexed exactly as this package is. `cdfquantreg` covers
+  location and median models, which are not `tau`-indexed at all.
 - For **smooth or additive** quantile effects, `qgam` is the right tool.
 - The five-parameter `gkw` is weakly identified in any parametrization;
   the package warns and

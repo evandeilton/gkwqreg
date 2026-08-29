@@ -194,16 +194,16 @@ interpretable, unlike the log-odds coefficient.</p>
 <span><span class="co">#&gt; 5    kkw   beta  8 287.9018 -559.8037 -530.2269 0.01396189      TRUE</span></span></code></pre></div>
 <p>This is worth dwelling on, because it is the situation the
 documentation warns about. <strong>AIC ranks <code>beta</code> first
-while check loss ranks it last</strong>, behind every Kumaraswamy
+while the pinball loss ranks it last</strong>, behind every Kumaraswamy
 member. The two disagree because they measure different things: AIC
-scores the whole conditional density, check loss scores only the
+scores the whole conditional density, the pinball loss scores only the
 quantile being estimated. A family can describe the bulk of the
 distribution well — which is what buys it the likelihood — and still
 place the 0.9-quantile worse than a rival that fits the bulk less
 well.</p>
-<p>For a quantile question the check loss is the criterion that matches
-the goal — but it must be computed <strong>out of sample</strong>, or it
-simply rewards flexibility:</p>
+<p>For a quantile question the pinball loss is the criterion that
+matches the goal — but it must be computed <strong>out of
+sample</strong>, or it simply rewards flexibility:</p>
 <div class="sourceCode" id="cb6"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="fu"><a href="https://rdrr.io/r/base/Random.html" class="external-link">set.seed</a></span><span class="op">(</span><span class="fl">1</span><span class="op">)</span></span>
 <span><span class="va">folds</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/sample.html" class="external-link">sample</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/rep.html" class="external-link">rep</a></span><span class="op">(</span><span class="fl">1</span><span class="op">:</span><span class="fl">5</span>, length.out <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/nrow.html" class="external-link">nrow</a></span><span class="op">(</span><span class="va">bodyfat</span><span class="op">)</span><span class="op">)</span><span class="op">)</span></span>
@@ -219,7 +219,7 @@ simply rewards flexibility:</p>
 <span><span class="fu"><a href="https://rdrr.io/r/base/Round.html" class="external-link">round</a></span><span class="op">(</span><span class="va">cv</span>, <span class="fl">6</span><span class="op">)</span></span>
 <span><span class="co">#&gt;       kw      ekw      bkw     beta </span></span>
 <span><span class="co">#&gt; 0.014742 0.014257 0.014254 0.014583</span></span></code></pre></div>
-<p>Five-fold cross-validated check loss is the number to act on.</p>
+<p>Five-fold cross-validated pinball loss is the number to act on.</p>
 </div>
 <div class="section level2">
 <h2 id="where-the-model-fits-badly">Where the model fits badly<a class="anchor" aria-label="anchor" href="#where-the-model-fits-badly"></a>
@@ -321,8 +321,8 @@ warning.</p>
 <li>Fit at the quantile level the question is about.</li>
 <li>Check empirical coverage and the condition number in
 <code><a href="https://rdrr.io/r/base/summary.html" class="external-link">summary()</a></code>.</li>
-<li>Choose the family by <strong>out-of-sample check loss</strong>, not
-AIC alone.</li>
+<li>Choose the family by <strong>out-of-sample pinball loss</strong>,
+not AIC alone.</li>
 <li>Read effects on the response scale with
 <code><a href="../reference/marginal_effects.html">marginal_effects()</a></code>.</li>
 <li>Check calibration with panel 5, not just the Q-Q plot.</li>

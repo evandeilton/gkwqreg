@@ -129,17 +129,17 @@ cmp
 ```
 
 This is worth dwelling on, because it is the situation the documentation
-warns about. **AIC ranks `beta` first while check loss ranks it last**,
-behind every Kumaraswamy member. The two disagree because they measure
-different things: AIC scores the whole conditional density, check loss
-scores only the quantile being estimated. A family can describe the bulk
-of the distribution well — which is what buys it the likelihood — and
-still place the 0.9-quantile worse than a rival that fits the bulk less
-well.
+warns about. **AIC ranks `beta` first while the pinball loss ranks it
+last**, behind every Kumaraswamy member. The two disagree because they
+measure different things: AIC scores the whole conditional density, the
+pinball loss scores only the quantile being estimated. A family can
+describe the bulk of the distribution well — which is what buys it the
+likelihood — and still place the 0.9-quantile worse than a rival that
+fits the bulk less well.
 
-For a quantile question the check loss is the criterion that matches the
-goal — but it must be computed **out of sample**, or it simply rewards
-flexibility:
+For a quantile question the pinball loss is the criterion that matches
+the goal — but it must be computed **out of sample**, or it simply
+rewards flexibility:
 
 ``` r
 
@@ -159,7 +159,7 @@ round(cv, 6)
 #> 0.014742 0.014257 0.014254 0.014583
 ```
 
-Five-fold cross-validated check loss is the number to act on.
+Five-fold cross-validated pinball loss is the number to act on.
 
 ## Where the model fits badly
 
@@ -281,7 +281,7 @@ The workflow this vignette follows is the one to reuse:
 1.  Fit at the quantile level the question is about.
 2.  Check empirical coverage and the condition number in
     [`summary()`](https://rdrr.io/r/base/summary.html).
-3.  Choose the family by **out-of-sample check loss**, not AIC alone.
+3.  Choose the family by **out-of-sample pinball loss**, not AIC alone.
 4.  Read effects on the response scale with
     [`marginal_effects()`](https://evandeilton.github.io/gkwqreg/reference/marginal_effects.md).
 5.  Check calibration with panel 5, not just the Q-Q plot.

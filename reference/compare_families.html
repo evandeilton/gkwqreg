@@ -82,9 +82,10 @@ the data at all merely costs time.</p></dd>
 
 
 <dt id="arg--">...<a class="anchor" aria-label="anchor" href="#arg--"></a></dt>
-<dd><p>Currently unused; present for future extension. Arguments given
-here do not reach <code><a href="gkwqreg.html">gkwqreg()</a></code>. To vary anything other than the family,
-change it in <code>object</code> and call this function again.</p></dd>
+<dd><p>Overrides applied to the stored call before each family is
+refitted. Anything valid for <code><a href="gkwqreg.html">gkwqreg()</a></code> may be given, so a single
+<code>compare_families(fit, tau = 0.9)</code> refits every family at that level. The
+<code>family</code> argument itself is set per row and cannot be overridden here.</p></dd>
 
 </dl></div>
     <div class="section level2">

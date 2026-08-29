@@ -39,6 +39,8 @@ several quantile levels.
   [`fitted(`*`<gkwqregs>`*`)`](https://evandeilton.github.io/gkwqreg/reference/gkwqregs-methods.md)
   [`logLik(`*`<gkwqregs>`*`)`](https://evandeilton.github.io/gkwqreg/reference/gkwqregs-methods.md)
   [`summary(`*`<gkwqregs>`*`)`](https://evandeilton.github.io/gkwqreg/reference/gkwqregs-methods.md)
+  [`predict(`*`<gkwqregs>`*`)`](https://evandeilton.github.io/gkwqreg/reference/gkwqregs-methods.md)
+  [`residuals(`*`<gkwqregs>`*`)`](https://evandeilton.github.io/gkwqreg/reference/gkwqregs-methods.md)
   : Methods for a set of quantile regression fits
 - [`fitted(`*`<gkwqreg>`*`)`](https://evandeilton.github.io/gkwqreg/reference/fitted.gkwqreg.md)
   : Fitted conditional quantiles

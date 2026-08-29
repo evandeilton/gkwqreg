@@ -221,8 +221,14 @@ max(abs(gkwdist::pgkw(yv, 1.5, 2, 3, 0, 0.7) -     # gamma*lambda = 2.1
 
 The \lambda-anchor is therefore inadmissible whenever \delta=0 with
 \gamma free, because the quantile coefficients themselves become
-unidentified. The package errors rather than warns. The default
-\beta-anchor is immune.
+unidentified. The default \beta-anchor is immune.
+
+No family shipped with the package reaches that combination: every one
+that fixes \delta=0 — `kw` and `ekw` — also fixes \gamma=1. The guard
+sits in the family registry so that the rule stays enforced if a
+`fixed=` argument is ever added, and the test suite exercises it against
+a synthetic specification rather than a real family. It is a rule the
+registry keeps, not one a user can currently trip.
 
 ### The full `gkw` model is weakly identified
 
@@ -262,9 +268,12 @@ them z\_\tau is either \tau itself or the elementary
 
 - Carrasco, J. M. F., Ferrari, S. L. P. and Cordeiro, G. M. (2010). A
   New Generalized Kumaraswamy Distribution. arXiv:1004.0911.
+  [doi:10.48550/arXiv.1004.0911](https://doi.org/10.48550/arXiv.1004.0911)
 - Mitnik and Baek (2013). *Statistical Papers* **54**, 177–192.
 - Cox, D. R. and Reid, N. (1987). Parameter orthogonality and
   approximate conditional inference. *JRSS-B* **49**(1), 1-18.
+  [doi:10.1111/j.2517-6161.1987.tb01422.x](https://doi.org/10.1111/j.2517-6161.1987.tb01422.x)
 - Boik, R. J. and Robison-Cox, J. F. (1998). Derivatives of the
   incomplete beta function. *Journal of Statistical Software* **3**(1),
   1-20.
+  [doi:10.18637/jss.v003.i01](https://doi.org/10.18637/jss.v003.i01)

@@ -152,7 +152,7 @@ Covariance: expected   Information condition number: 30.99</code></pre>
 <tr>
 <td>
 <code>alpha:</code> block</td>
-<td>A shape parameter. It controls the spread of the conditional distribution, not the quantile you are modelling</td>
+<td>A nuisance parameter. It controls the spread of the conditional distribution, not the quantile you are modelling</td>
 </tr>
 <tr>
 <td><code>Anchored parameter</code></td>
@@ -225,7 +225,7 @@ dQ(tau|x)/dx_j, logit link
 <div class="section level2">
 <h2 id="the-seven-families">The seven families<a class="anchor" aria-label="anchor" href="#the-seven-families"></a>
 </h2>
-<p>They form a genuine nesting, so family selection is an ordinary likelihood-ratio test.</p>
+<p>They form a nesting <strong>lattice</strong>, not a single chain, so a likelihood-ratio test applies along a chain of containments. <code>kw</code> sits inside all of <code>ekw</code>, <code>kkw</code>, <code>bkw</code> and <code>gkw</code>; <code>ekw</code> inside <code>kkw</code> and <code>gkw</code>; <code>beta</code> inside <code>mc</code>, <code>bkw</code> and <code>gkw</code>. But <code>ekw</code> and <code>bkw</code> contain neither each other, and <code><a href="https://rdrr.io/r/stats/anova.html" class="external-link">anova()</a></code> returns <code>NA</code> with a warning for any such pair rather than reporting a test that does not apply.</p>
 <table class="table">
 <thead><tr>
 <th>family</th>
@@ -280,11 +280,11 @@ dQ(tau|x)/dx_j, logit link
 </table>
 <div class="sourceCode" id="cb11"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="fu"><a href="reference/compare_families.html">compare_families</a></span><span class="op">(</span><span class="va">fit</span>, families <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"kw"</span>, <span class="st">"ekw"</span>, <span class="st">"beta"</span><span class="op">)</span><span class="op">)</span></span>
-<span><span class="co">#&gt;   family anchor df    logLik       AIC    pinball converged</span></span>
-<span><span class="co">#&gt; 1     kw   beta  3 149.21283 -292.4257 0.02769714      TRUE</span></span>
-<span><span class="co">#&gt; 2    ekw   beta  4 149.36135 -290.7227 0.02769820      TRUE</span></span>
-<span><span class="co">#&gt; 3   beta  gamma  3  65.15314 -124.3063 0.03894886      TRUE</span></span></code></pre></div>
-<p>Compare on <code>pinball</code> when choosing out of sample: check loss is what a quantile estimate actually targets.</p>
+<span><span class="co">#&gt;   family anchor df   logLik       AIC       BIC    pinball converged</span></span>
+<span><span class="co">#&gt; 1     kw   beta  4 230.6209 -453.2418 -435.6540 0.02995121      TRUE</span></span>
+<span><span class="co">#&gt; 2    ekw   beta  5 230.8573 -451.7146 -429.7299 0.02995948      TRUE</span></span>
+<span><span class="co">#&gt; 3   beta  gamma  4 210.5077 -413.0155 -395.4278 0.03196525      TRUE</span></span></code></pre></div>
+<p>Compare on <code>pinball</code> when choosing out of sample: the pinball loss is what a quantile estimate actually targets.</p>
 </div>
 <div class="section level2">
 <h2 id="the-anchor-is-a-modeling-choice">The anchor is a modeling choice<a class="anchor" aria-label="anchor" href="#the-anchor-is-a-modeling-choice"></a>
@@ -325,7 +325,7 @@ dQ(tau|x)/dx_j, logit link
 </h2>
 <ul>
 <li>Under <strong>misspecification</strong> of the family, <code><a href="https://rdrr.io/pkg/quantreg/man/rq.html" class="external-link">quantreg::rq</a></code> stays consistent for the conditional quantile and this does not. That is the central trade-off of parametric quantile regression.</li>
-<li>For a <strong>median-only</strong> model with no interest in shape, <code>unitquantreg</code> and <code>cdfquantreg</code> are simpler and established.</li>
+<li>For a <strong>single quantile</strong> from a wide catalogue of two-parameter families, with no need for nested family selection or regressions on the shape, <code>unitquantreg</code> is simpler and established — it is <code>tau</code>-indexed exactly as this package is. <code>cdfquantreg</code> covers location and median models, which are not <code>tau</code>-indexed at all.</li>
 <li>For <strong>smooth or additive</strong> quantile effects, <code>qgam</code> is the right tool.</li>
 <li>The five-parameter <code>gkw</code> is weakly identified in any parametrization; the package warns and <code><a href="https://rdrr.io/r/base/summary.html" class="external-link">summary()</a></code> reports the information matrix’s condition number.</li>
 </ul>
@@ -440,7 +440,7 @@ dQ(tau|x)/dx_j, logit link
 <li><a href="https://github.com/evandeilton/gkwqreg/actions/workflows/R-CMD-check.yaml" class="external-link"><img src="https://github.com/evandeilton/gkwqreg/actions/workflows/R-CMD-check.yaml/badge.svg" alt="R-CMD-check"></a></li>
 <li><a href="https://opensource.org/licenses/MIT" class="external-link"><img src="https://img.shields.io/badge/License-MIT-yellow.svg" alt="License: MIT"></a></li>
 <li><a href="https://lifecycle.r-lib.org/articles/stages.html#experimental" class="external-link"><img src="https://img.shields.io/badge/lifecycle-experimental-orange.svg" alt="Lifecycle: experimental"></a></li>
-<li><a href="https://cran.r-project.org/" class="external-link"><img src="https://img.shields.io/badge/R-%3E%3D%203.5-blue.svg" alt="R &gt;= 3.5"></a></li>
+<li><a href="https://cran.r-project.org/" class="external-link"><img src="https://img.shields.io/badge/R-%3E%3D%204.1-blue.svg" alt="R &gt;= 4.1"></a></li>
 </ul>
 </div>
 

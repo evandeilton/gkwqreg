@@ -33,11 +33,12 @@ compare_families(
 
 - ...:
 
-  Currently unused; present for future extension. Arguments given here
-  do not reach
-  [`gkwqreg()`](https://evandeilton.github.io/gkwqreg/reference/gkwqreg.md).
-  To vary anything other than the family, change it in `object` and call
-  this function again.
+  Overrides applied to the stored call before each family is refitted.
+  Anything valid for
+  [`gkwqreg()`](https://evandeilton.github.io/gkwqreg/reference/gkwqreg.md)
+  may be given, so a single `compare_families(fit, tau = 0.9)` refits
+  every family at that level. The `family` argument itself is set per
+  row and cannot be overridden here.
 
 ## Value
 

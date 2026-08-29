@@ -133,8 +133,10 @@ which is useful for inspection or for deferred evaluation.</p></dd>
 
 
 <dt id="arg-level">level<a class="anchor" aria-label="anchor" href="#arg-level"></a></dt>
-<dd><p>Confidence level recorded by <code><a href="https://rdrr.io/r/base/summary.html" class="external-link">summary()</a></code> and used when its
-result is printed or post-processed.</p></dd>
+<dd><p>Confidence level stored on the <code><a href="https://rdrr.io/r/base/summary.html" class="external-link">summary()</a></code> object for a caller
+that wants it. The printed table reports estimates, standard errors and
+p-values rather than an interval, so changing <code>level</code> does not change what
+<code><a href="https://rdrr.io/r/base/print.html" class="external-link">print()</a></code> shows; use <code><a href="https://rdrr.io/r/stats/confint.html" class="external-link">confint()</a></code> for an interval at a chosen level.</p></dd>
 
 
 <dt id="arg-vcov-type">vcov_type<a class="anchor" aria-label="anchor" href="#arg-vcov-type"></a></dt>
@@ -248,7 +250,7 @@ which case the formula must be updated in the same call.</p>
 <span class="r-out co"><span class="r-pr">#&gt;</span> [1] "mu"    "alpha"</span>
 <span class="r-in"><span><span class="fu"><a href="https://rdrr.io/r/stats/formula.html" class="external-link">formula</a></span><span class="op">(</span><span class="va">fit</span><span class="op">)</span></span></span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> y ~ x1 + x2 | x1</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> &lt;environment: 0x561329cd48a8&gt;</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> &lt;environment: 0x557c097050c0&gt;</span>
 <span class="r-in"><span></span></span>
 <span class="r-in"><span><span class="co">## -- fit statistics, all at this one quantile level ----------------------</span></span></span>
 <span class="r-in"><span><span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span>logLik <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/numeric.html" class="external-link">as.numeric</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/stats/logLik.html" class="external-link">logLik</a></span><span class="op">(</span><span class="va">fit</span><span class="op">)</span><span class="op">)</span>, df <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/attr.html" class="external-link">attr</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/stats/logLik.html" class="external-link">logLik</a></span><span class="op">(</span><span class="va">fit</span><span class="op">)</span>, <span class="st">"df"</span><span class="op">)</span>,</span></span>

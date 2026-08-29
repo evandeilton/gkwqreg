@@ -20,6 +20,12 @@ logLik(object, ...)
 
 # S3 method for class 'gkwqregs'
 summary(object, ...)
+
+# S3 method for class 'gkwqregs'
+predict(object, newdata = NULL, ...)
+
+# S3 method for class 'gkwqregs'
+residuals(object, ...)
 ```
 
 ## Arguments
@@ -34,6 +40,14 @@ summary(object, ...)
 
   Passed on to the corresponding method for each individual fit.
 
+- newdata:
+
+  Used by [`predict()`](https://rdrr.io/r/stats/predict.html) only: an
+  optional data frame in which to evaluate every fit, with the same
+  requirements as
+  [`predict.gkwqreg()`](https://evandeilton.github.io/gkwqreg/reference/predict.gkwqreg.md).
+  `NULL`, the default, uses the estimation data.
+
 ## Value
 
 - [`coef()`](https://rdrr.io/r/stats/coef.html): a numeric matrix with
@@ -46,6 +60,13 @@ summary(object, ...)
 
 - [`summary()`](https://rdrr.io/r/base/summary.html): a list of
   `"summary.gkwqreg"` objects, one per level.
+
+- [`predict()`](https://rdrr.io/r/stats/predict.html): a numeric matrix
+  with one row per prediction and one column per level, from each fit in
+  turn.
+
+- [`residuals()`](https://rdrr.io/r/stats/residuals.html): a numeric
+  matrix with one row per observation and one column per level.
 
 - [`logLik()`](https://rdrr.io/r/stats/logLik.html): never returns; it
   raises an error explaining why.

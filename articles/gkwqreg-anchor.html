@@ -320,9 +320,14 @@ model.</p>
 <p>The <span class="math inline">\lambda</span>-anchor is therefore
 inadmissible whenever <span class="math inline">\delta=0</span> with
 <span class="math inline">\gamma</span> free, because the quantile
-coefficients themselves become unidentified. The package errors rather
-than warns. The default <span class="math inline">\beta</span>-anchor is
-immune.</p>
+coefficients themselves become unidentified. The default <span class="math inline">\beta</span>-anchor is immune.</p>
+<p>No family shipped with the package reaches that combination: every
+one that fixes <span class="math inline">\delta=0</span> —
+<code>kw</code> and <code>ekw</code> — also fixes <span class="math inline">\gamma=1</span>. The guard sits in the family
+registry so that the rule stays enforced if a <code>fixed=</code>
+argument is ever added, and the test suite exercises it against a
+synthetic specification rather than a real family. It is a rule the
+registry keeps, not one a user can currently trip.</p>
 </div>
 <div class="section level3">
 <h3 id="the-full-gkw-model-is-weakly-identified">The full <code>gkw</code> model is weakly identified<a class="anchor" aria-label="anchor" href="#the-full-gkw-model-is-weakly-identified"></a>
@@ -362,15 +367,18 @@ touch that code path at all: for them <span class="math inline">z_\tau</span> is
 </h2>
 <ul>
 <li>Carrasco, J. M. F., Ferrari, S. L. P. and Cordeiro, G. M. (2010). A
-New Generalized Kumaraswamy Distribution. arXiv:1004.0911. </li>
+New Generalized Kumaraswamy Distribution. arXiv:1004.0911. <a href="https://doi.org/10.48550/arXiv.1004.0911" class="external-link">doi:10.48550/arXiv.1004.0911</a>
+</li>
 <li>Mitnik and Baek (2013). <em>Statistical Papers</em>
 <strong>54</strong>, 177–192.</li>
 <li>Cox, D. R. and Reid, N. (1987). Parameter orthogonality and
 approximate conditional inference. <em>JRSS-B</em>
-<strong>49</strong>(1), 1-18. </li>
+<strong>49</strong>(1), 1-18. <a href="https://doi.org/10.1111/j.2517-6161.1987.tb01422.x" class="external-link">doi:10.1111/j.2517-6161.1987.tb01422.x</a>
+</li>
 <li>Boik, R. J. and Robison-Cox, J. F. (1998). Derivatives of the
 incomplete beta function. <em>Journal of Statistical Software</em>
-<strong>3</strong>(1), 1-20. </li>
+<strong>3</strong>(1), 1-20. <a href="https://doi.org/10.18637/jss.v003.i01" class="external-link">doi:10.18637/jss.v003.i01</a>
+</li>
 </ul>
 </div>
   </main><aside class="col-md-3"><nav id="toc" aria-label="Table of contents"><h2>On this page</h2>
