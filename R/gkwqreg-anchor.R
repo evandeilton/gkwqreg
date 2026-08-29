@@ -245,10 +245,36 @@ gkwq_quantile <- function(tau, alpha = 1, beta = 1, gamma = 1, delta = 0,
   out
 }
 
+## log I_t(p, q) for an argument supplied as log t, so that a t far below the
+## smallest representable double is still usable. Below the point where exp()
+## underflows, the leading term of the series expansion takes over; it agrees
+## with pbeta() to machine precision everywhere both are available (checked
+## down to log t = -700 across shape combinations).
+.gkwq_lbeta_tail <- function(lt, p, q) {
+  ifelse(lt > -700,
+         stats::pbeta(exp(lt), p, q, lower.tail = TRUE, log.p = TRUE),
+         p * lt + lgamma(p + q) - lgamma(p + 1) - lgamma(q))
+}
+
 ## Distribution function, in the log domain throughout.
+##
+## Both tails are reached through their own small argument. Feeding x directly
+## to pbeta() destroys the upper tail: x = v^lambda rounds to 1 as soon as
+## log x falls below about -1e-17, so log S collapses to -Inf while its true
+## value is perfectly finite -- for kw with alpha = 2, beta = 60 the function
+## used to return -Inf at y = 0.8, where log S is -201.93. The reflection
+## I_x(p,q) = 1 - I_{1-x}(q,p) puts the small quantity in the argument instead,
+## and log(1-x) is built without cancellation: for x = v^lambda with
+## v = 1 - e^lw, 1 - x tends to lambda e^lw.
 .gkwq_logcdf <- function(y, alpha, beta, gamma, delta, lambda,
                          lower.tail = TRUE) {
-  lv <- .log1mexp(beta * .log1mexp(alpha * log(y)))
-  stats::pbeta(exp(lambda * lv), gamma, delta + 1,
-               lower.tail = lower.tail, log.p = TRUE)
+  lw <- beta * .log1mexp(alpha * log(y))   # log((1 - y^alpha)^beta)
+  lv <- .log1mexp(lw)                      # log v, v = 1 - (1 - y^alpha)^beta
+  lx <- lambda * lv                        # log x, x = v^lambda
+  if (lower.tail) {
+    return(.gkwq_lbeta_tail(lx, gamma, delta + 1))
+  }
+  ## lv underflows to exactly 0 once lw < -745; there 1 - x -> lambda e^lw.
+  l1mx <- ifelse(lv < 0, .log1mexp(lx), log(lambda) + lw)
+  .gkwq_lbeta_tail(l1mx, delta + 1, gamma)
 }

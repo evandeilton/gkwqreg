@@ -8,6 +8,21 @@
 ## the arithmetic would happily produce a number.
 ## ---------------------------------------------------------------------------
 
+## Does family `a` sit strictly inside family `b`? Read off the registry rather
+## than tabulated, so it cannot drift from the specs: `a` is inside `b` exactly
+## when `b` leaves free every parameter `a` leaves free, and at least one more.
+## The relation is a lattice, not a chain -- kw is inside both ekw and bkw,
+## which are inside neither each other -- and only chains admit an LR test.
+.gkwq_family_nested <- function(a, b) {
+  fixed_of <- function(f) {
+    fx <- .gkwq_family_info(f, NULL)$fixed
+    names(fx)[!vapply(fx, is.null, logical(1))]
+  }
+  fa <- fixed_of(a)
+  fb <- fixed_of(b)
+  all(fb %in% fa) && length(fa) > length(fb)
+}
+
 .gkwq_check_comparable <- function(objects, what = "compared") {
   taus <- vapply(objects, function(o) o$tau, numeric(1))
   if (length(unique(taus)) > 1L) {
@@ -246,7 +261,24 @@ anova.gkwqreg <- function(object, ...) {
 
   stat <- c(NA_real_, 2 * diff(ll))
   ddf <- c(NA_real_, diff(df))
-  p <- ifelse(is.na(stat) | ddf <= 0, NA_real_,
+
+  ## The family lattice is not a chain: ekw and bkw both contain kw and neither
+  ## contains the other, and 9 of the 21 pairs are unordered like that. A
+  ## likelihood-ratio test does not apply to them, so the statistic must not be
+  ## reported as one.
+  nested <- c(NA, vapply(seq_along(objects)[-1L], function(i) {
+    identical(fam[i - 1L], fam[i]) || .gkwq_family_nested(fam[i - 1L], fam[i])
+  }, logical(1)))
+
+  ## A log-likelihood that falls as Df rises is not evidence about the data; it
+  ## says one of the fits stopped short of its maximum. Reported through
+  ## pchisq() a negative statistic silently becomes p = 1, which reads as a
+  ## comfortable "keep the smaller model" when the real message is that the
+  ## larger fit failed.
+  negative <- !is.na(stat) & stat < 0
+
+  p <- ifelse(is.na(stat) | ddf <= 0 | negative | !nested %in% TRUE,
+              NA_real_,
               stats::pchisq(stat, pmax(ddf, 1), lower.tail = FALSE))
 
   out <- data.frame(family = fam, Df = df, logLik = ll, AIC = -2 * ll + 2 * df,
@@ -260,6 +292,20 @@ anova.gkwqreg <- function(object, ...) {
   if (any(!is.na(ddf) & ddf <= 0)) {
     warning("some compared models have the same dimension; a likelihood-ratio ",
             "test does not apply to them. Use AIC or a Vuong test.",
+            call. = FALSE)
+  }
+  if (any(!nested %in% TRUE & !is.na(ddf))) {
+    bad <- which(!nested %in% TRUE & !is.na(ddf))
+    warning("these families are not nested, so a likelihood-ratio test does ",
+            "not apply and Pr(>Chisq) is NA: ",
+            paste(sprintf("%s vs %s", fam[bad - 1L], fam[bad]), collapse = ", "),
+            ". Use AIC, BIC or a Vuong test.", call. = FALSE)
+  }
+  if (any(negative)) {
+    warning("the log-likelihood falls as the dimension rises, which cannot ",
+            "happen at two maxima: the larger fit has not converged. ",
+            "Pr(>Chisq) is NA for ", sum(negative), " comparison(s); refit or ",
+            "discard the offending model rather than reading the test.",
             call. = FALSE)
   }
   class(out) <- c("anova.gkwqreg", "anova", "data.frame")

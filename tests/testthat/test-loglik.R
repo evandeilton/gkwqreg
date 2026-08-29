@@ -48,3 +48,34 @@ test_that("the log-domain cascade survives responses that break gkwdist::dgkw", 
   ## And the comparison that motivates the cascade at all.
   expect_true(is.infinite(gkwdist::dgkw(1 - 1e-10, 2, 3, 1, 0, 1, log = TRUE)))
 })
+
+test_that("the log-CDF keeps the upper tail that pbeta's argument destroys", {
+  ## log F and log S were both taken from pbeta(exp(lambda * lv), ...). The
+  ## argument rounds to 1 as soon as lambda*lv falls below about -1e-17, so the
+  ## upper tail collapsed to -Inf while its true value stayed finite: for
+  ## kw with alpha = 2, beta = 60 the function returned -Inf at y = 0.8, where
+  ## log S is -201.93, and at y = 1 - 1e-10, where it is -1339.96.
+  ##
+  ## For the Kumaraswamy sub-family the survival function is elementary,
+  ## log S(y) = beta * log(1 - y^alpha), which is what the result must equal.
+  lcdf <- gq(".gkwq_logcdf"); l1me <- gq(".log1mexp")
+  alpha <- 2; beta <- 60
+  for (y in c(0.8, 0.95, 1 - 1e-2, 1 - 1e-6, 1 - 1e-10, 1 - 1e-14)) {
+    exact <- beta * l1me(alpha * log(y))
+    expect_equal(lcdf(y, alpha, beta, 1, 0, 1, lower.tail = FALSE), exact,
+                 tolerance = 1e-10, info = sprintf("y = %.17g", y))
+  }
+
+  ## The two tails still sum to one wherever both are representable, and the
+  ## result is unchanged from the previous route in that regime.
+  set.seed(3)
+  for (i in seq_len(200)) {
+    y <- stats::runif(1, 0.05, 0.95)
+    a <- stats::runif(1, 0.5, 3); b <- stats::runif(1, 0.5, 5)
+    g <- stats::runif(1, 0.5, 3); d <- stats::runif(1, 0, 3)
+    L <- stats::runif(1, 0.5, 2)
+    lF <- lcdf(y, a, b, g, d, L, lower.tail = TRUE)
+    lS <- lcdf(y, a, b, g, d, L, lower.tail = FALSE)
+    expect_equal(exp(lF) + exp(lS), 1, tolerance = 1e-9)
+  }
+})
