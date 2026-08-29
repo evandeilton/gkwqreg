@@ -155,14 +155,13 @@ simulate.gkwqreg <- function(object, nsim = 1L, seed = NULL, ...) {
 #' @param ... Unused; present for future extension.
 #'
 #' @details
-#' Each replicate re-evaluates the original call on the resampled data. Two
-#' arguments are stripped from that call because both refer to the original
-#' rows and would no longer be aligned: `subset`, which has already been
-#' applied in building the model frame, and `weights`. **A weighted fit is
-#' therefore bootstrapped unweighted**, and the bootstrap standard errors of
-#' such a fit describe a different estimator from the one that was fitted. An
-#' offset written into the formula with `offset()` lives in the model frame and
-#' does follow the resampling; one supplied as a free-standing vector does not.
+#' Each replicate re-evaluates the original call on the resampled data. Only
+#' `subset` is stripped from that call, having already been applied in building
+#' the model frame. Everything else that is indexed by observation is carried
+#' across and reindexed with the resampled rows: prior `weights`, an `offset`
+#' argument, and `offset()` terms written into any part of the formula. A
+#' weighted or offset fit is therefore bootstrapped as the estimator it
+#' actually is.
 #'
 #' @section Why pairs is the default:
 #' The whole bargain of parametric quantile regression is that it buys
@@ -380,6 +379,18 @@ gkwq_boot <- function(object, R = 200L, type = c("pairs", "parametric"),
   if (sum(ok) < 2L) {
     stop("fewer than two bootstrap replicates converged; the fit is too ",
          "unstable to bootstrap.", call. = FALSE)
+  }
+  ## Anything between two and R was being dropped in silence. The survivors are
+  ## then a sample conditioned on having converged, and the bootstrap
+  ## distribution does not correct for that: the standard error and the
+  ## percentile interval both describe the well-behaved subset rather than the
+  ## estimator. n_ok records it, but a number nobody is told to look at is not a
+  ## warning.
+  if (sum(ok) < 0.9 * R) {
+    warning(R - sum(ok), " of ", R, " bootstrap replicates failed to converge ",
+            "and were dropped. The remaining ", sum(ok), " are conditioned on ",
+            "convergence, so the standard errors and percentile limits below ",
+            "describe that subset rather than the estimator.", call. = FALSE)
   }
   V <- stats::cov(reps[ok, , drop = FALSE])
 

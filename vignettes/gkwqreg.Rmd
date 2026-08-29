@@ -113,7 +113,7 @@ fit_ekw <- gkwqreg(y ~ x + z, data = dat, tau = 0.5, family = "ekw")
 anova(fit_kw, fit_ekw)
 ```
 
-For an out-of-sample choice, prefer check loss: it is the criterion a quantile estimate
+For an out-of-sample choice, prefer the pinball loss: it is the criterion a quantile estimate
 actually targets, whereas AIC compares likelihoods.
 
 ```{r compare}

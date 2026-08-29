@@ -3,7 +3,20 @@
 test_that("V14: the full S3 surface runs on all seven families", {
   d <- sim_kw(n = 150)
   for (fam in ALL_FAMILIES) {
-    f <- suppressWarnings(gkwqreg(y ~ x, data = d, tau = 0.5, family = fam))
+    ## Warnings are collected rather than suppressed. suppressWarnings() here
+    ## hid that three of the seven families do not converge on this fixture,
+    ## while expect_true(is.matrix(vcov(f))) passed on a covariance matrix that
+    ## was not positive definite and a confint() containing NA. The surface has
+    ## to run on all seven -- that is what V14 claims -- but the optimizer's
+    ## verdict has to be visible, and where it did converge the covariance has
+    ## to be usable. Which families struggle depends on the starting values, so
+    ## the invariant is conditional rather than a list of names.
+    warns <- character(0)
+    f <- withCallingHandlers(
+      gkwqreg(y ~ x, data = d, tau = 0.5, family = fam),
+      warning = function(w) {
+        warns <<- c(warns, conditionMessage(w)); invokeRestart("muffleWarning")
+      })
     lab <- sprintf("family %s", fam)
     expect_type(coef(f), "double")
     expect_true(is.matrix(vcov(f)), info = lab)
@@ -23,6 +36,18 @@ test_that("V14: the full S3 surface runs on all seven families", {
     expect_length(residuals(f), 150L)
     expect_type(getCall(f), "language")
     expect_silent(invisible(capture.output(print(family(f)))))
+
+    if (isTRUE(f$convergence == 0)) {
+      ## A converged fit must carry a covariance one can actually use.
+      ev <- eigen(vcov(f), symmetric = TRUE, only.values = TRUE)$values
+      expect_gt(min(ev), 0)
+      expect_false(anyNA(suppressWarnings(confint(f))))
+      expect_true(all(is.finite(coef(f))), info = lab)
+    } else {
+      ## And a fit that did not converge must say so rather than pass quietly.
+      expect_true(any(grepl("converge", warns, fixed = TRUE)),
+                  label = paste("non-convergence is reported for", lab))
+    }
   }
 })
 
@@ -35,7 +60,10 @@ test_that("every residual type is finite on every family", {
     for (ty in types) {
       r <- residuals(f, type = ty)
       expect_length(r, 150L)
-      expect_true(mean(is.finite(r)) > 0.99,
+      ## Was mean(is.finite(r)) > 0.99, which with n = 150 tolerates one
+      ## non-finite residual: pure slack, and the only thing it could ever hide
+      ## is the first regression. None of the seven families produces one.
+      expect_true(all(is.finite(r)),
                   info = sprintf("%s / %s: %d non-finite", fam, ty,
                                  sum(!is.finite(r))))
     }
@@ -266,4 +294,29 @@ test_that("a non-positive variance gives NA, never a standard error of zero", {
     expect_true(all(is.finite(tab[-1L, "Std. Error"])),
                 label = paste("others unaffected,", lab))
   }
+})
+
+test_that("summary() weights the loss it compares against the weighted pinball", {
+  ## object$pinball comes from the tape, where it is weighted and divided by
+  ## sum(w). summary() built its null loss and its coverage with plain means,
+  ## so Pseudo-R1 = 1 - pinball/pin0 had a weighted numerator over an
+  ## unweighted denominator whenever weights were supplied.
+  set.seed(17); n <- 200; x <- stats::runif(n)
+  d <- data.frame(y = stats::qbeta(stats::runif(n), 2 + x, 3), x = x,
+                  w = rep(c(1, 5), length.out = n))
+
+  fw <- gkwqreg(y ~ x, d, tau = 0.7, family = "kw", weights = w)
+  sw <- summary(fw)
+  expect_equal(sw$coverage,
+               sum(d$w * (fw$y <= fitted(fw))) / sum(d$w), tolerance = 1e-12)
+
+  null_q <- stats::quantile(fw$y, probs = 0.7, names = FALSE, type = 7)
+  e0 <- fw$y - null_q
+  pin0 <- sum(d$w * e0 * (0.7 - (e0 < 0))) / sum(d$w)
+  expect_equal(sw$pseudo_r1, 1 - fw$pinball / pin0, tolerance = 1e-12)
+
+  ## Unit weights must reproduce the plain means exactly.
+  f0 <- gkwqreg(y ~ x, d, tau = 0.7, family = "kw")
+  s0 <- summary(f0)
+  expect_equal(s0$coverage, mean(f0$y <= fitted(f0)), tolerance = 1e-12)
 })

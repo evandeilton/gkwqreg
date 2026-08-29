@@ -19,8 +19,11 @@ has <- function(p) requireNamespace(p, quietly = TRUE)
 Most of the confusion in this corner of the ecosystem comes from one word carrying three
 meanings.
 
-**1. Check-function quantile regression.** `quantreg`, `qgam`. Distribution-free,
-indexed by `tau`, no likelihood. Minimises the pinball loss directly.
+**1. Check-function quantile regression.** `quantreg`, `qgam`. Distribution-free and
+indexed by `tau`: the target is the pinball loss rather than the shape of the response.
+`quantreg` minimises that loss directly. `qgam` replaces it with the extended log-F
+density and calibrates the resulting posterior, so it does carry a likelihood — but one
+chosen to reproduce the check function, not to describe the distribution.
 
 **2. Location- or median-parametrized models.** `cdfquantreg`, and
 `betareg`'s `predict(type = "quantile")`. A *single* fit whose location parameter happens
@@ -83,8 +86,15 @@ d <- local({
 })
 anova(gkwqreg(y ~ x, data = d, tau = .5, family = "kw"),
       gkwqreg(y ~ x, data = d, tau = .5, family = "ekw"),
-      gkwqreg(y ~ x, data = d, tau = .5, family = "gkw"))
+      gkwqreg(y ~ x, data = d, tau = .5, family = "kkw"))
 ```
+
+The chain matters: `kw` sits inside `ekw` sits inside `kkw`, and the test applies along a
+chain of containments, not between any two members. `ekw` and `bkw` both contain `kw` and
+neither contains the other, so `anova()` returns `NA` for that comparison and says why.
+The five-parameter `gkw` is left out of the demonstration on purpose — it is weakly
+identified, its optimizer frequently stops short, and a log-likelihood that falls as the
+dimension rises reports the failure rather than a test.
 
 ## Against `quantreg`, under correct specification
 
@@ -150,8 +160,12 @@ quantile function to the fitted mean and precision, which is meaning (2) above.
 library(betareg)
 data("GasolineYield", package = "betareg")
 
-bq <- betareg(yield ~ batch + temp, data = GasolineYield)
-gq <- gkwqreg(yield ~ batch + temp, data = GasolineYield, tau = 0.9, family = "kw")
+## `batch` has ten levels against 32 observations. Both packages will fit that,
+## but the information matrix is then barely positive definite and gkwqreg
+## reports NA for the standard errors rather than pretending otherwise, which
+## makes it the wrong model for a comparison about standard errors.
+bq <- betareg(yield ~ temp, data = GasolineYield)
+gq <- gkwqreg(yield ~ temp, data = GasolineYield, tau = 0.9, family = "kw")
 
 ## betareg: the 0.9-quantile implied by a MEAN model
 q_breg <- qbeta(0.9, shape1 = predict(bq, type = "response") * predict(bq, type = "precision"),
@@ -162,8 +176,11 @@ c(coverage_betareg = mean(GasolineYield$yield <= q_breg),
   target = 0.9)
 ```
 
-Both produce a number. Only one of them has a coefficient whose standard error refers to
-the 0.9-quantile:
+Both land near the target and `betareg` lands slightly closer here, which is worth saying
+plainly: with the family correctly specified, a mean model can imply perfectly good
+quantiles, and coverage on 32 observations separates nothing. The difference that matters
+is not the fitted number but what the coefficients mean. Only one of these two has a
+coefficient whose standard error refers to the 0.9-quantile:
 
 ```{r bregcoef, eval = has("betareg")}
 round(summary(gq)$coefficients["mu:temp", ], 5)
@@ -177,7 +194,9 @@ the precision submodels; here the quantity is modelled directly.
 
 - Conditional distribution unknown or clearly outside the family → **`quantreg`**.
 - Smooth or additive quantile effects → **`qgam`**.
-- Median only, no interest in shape → **`unitquantreg`** or **`cdfquantreg`**.
+- A single `tau` from a wide catalogue of two-parameter families, with no need for
+  nested family selection or regressions on the shape → **`unitquantreg`**.
+- A location or median model that is not `tau`-indexed at all → **`cdfquantreg`**.
 - A mean model that happens to also report quantiles → **`betareg`**, **`gkwreg`**.
 - A `tau`-indexed likelihood with quantile-interpretable coefficients, shape
   heterogeneity, and nested family selection on (0,1) → **`gkwqreg`**.
@@ -187,14 +206,14 @@ the precision submodels; here the quantity is modelled directly.
 - Koenker and Bassett (1978). Regression quantiles. *Econometrica* **46**, 33–50.
 - Mitnik and Baek (2013). *Statistical Papers* **54**, 177–192.
 - Menezes, A. F. B. and Mazucheli, J. `unitquantreg`: Parametric Quantile Regression
-  Models for Bounded Data. R package. \doi{10.32614/CRAN.package.unitquantreg}
+  Models for Bounded Data. R package. [doi:10.32614/CRAN.package.unitquantreg](https://doi.org/10.32614/CRAN.package.unitquantreg)
   (the package has no journal of record)
 - Mazucheli, J., Alves, B., Menezes, A. F. B. and Leiva, V. (2022). An overview on
   parametric quantile regression models and their computational implementation with
   applications to biomedical problems including COVID-19 data. *Computer Methods and
-  Programs in Biomedicine* **221**, 106816. \doi{10.1016/j.cmpb.2022.106816}
+  Programs in Biomedicine* **221**, 106816. [doi:10.1016/j.cmpb.2022.106816](https://doi.org/10.1016/j.cmpb.2022.106816)
 - Ferrari, S. L. P. and Cribari-Neto, F. (2004). Beta regression for modelling rates
   and proportions. *Journal of Applied Statistics* **31**(7), 799-815.
-  \doi{10.1080/0266476042000214501}
+  [doi:10.1080/0266476042000214501](https://doi.org/10.1080/0266476042000214501)
 - Chernozhukov, V., Fernández-Val, I. and Galichon, A. (2010). Quantile and probability
-  curves without crossing. *Econometrica* **78**(3), 1093-1125. \doi{10.3982/ECTA7880}
+  curves without crossing. *Econometrica* **78**(3), 1093-1125. [doi:10.3982/ECTA7880](https://doi.org/10.3982/ECTA7880)

@@ -56,6 +56,18 @@
          sQuote(out[["mu"]]), ". Use one of ",
          paste(sQuote(.GKWQ_UNIT_LINKS), collapse = ", "), ".", call. = FALSE)
   }
+  ## And the remaining parameters are positive, so their links must map to
+  ## (0, Inf). .GKWQ_POS_LINKS existed for this and was never consulted, so a
+  ## unit link on a shape was accepted in silence: link = c(alpha = "logit")
+  ## confines alpha to (0,1) and the fit converges onto the boundary at 1.
+  bad_pos <- setdiff(out[parts[-1L]], .GKWQ_POS_LINKS)
+  if (length(bad_pos)) {
+    nm <- parts[-1L][out[parts[-1L]] %in% bad_pos]
+    stop("link for ", paste(sQuote(nm), collapse = ", "),
+         " must map to (0, Inf); got ",
+         paste(sQuote(unique(bad_pos)), collapse = ", "), ". Use one of ",
+         paste(sQuote(.GKWQ_POS_LINKS), collapse = ", "), ".", call. = FALSE)
+  }
   out
 }
 

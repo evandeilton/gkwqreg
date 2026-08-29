@@ -109,3 +109,98 @@ test_that("a bad pre-fit is discarded rather than inherited", {
                                    control = gkwq_control(start_method = "ols")))
   expect_gte(auto$loglik, ols$loglik - 1e-4)
 })
+
+test_that("anova() refuses to report a test the lattice does not support", {
+  ## The seven families form a lattice, not a chain: ekw and bkw both contain
+  ## kw and neither contains the other, and 9 of the 21 pairs are unordered
+  ## like that. anova() used to run the likelihood-ratio test on them anyway,
+  ## with no warning and an ordinary-looking p-value.
+  set.seed(41); n <- 200; x <- stats::runif(n)
+  d <- data.frame(y = stats::qbeta(stats::runif(n), 2 + x, 3), x = x)
+  fit <- function(f) suppressWarnings(gkwqreg(y ~ x, d, tau = 0.5, family = f))
+
+  f_kw <- fit("kw"); f_ekw <- fit("ekw"); f_bkw <- fit("bkw")
+
+  ## A genuine chain still reports a test.
+  ok <- anova(f_kw, f_ekw)
+  expect_true(is.finite(ok$`Pr(>Chisq)`[2L]))
+
+  ## ekw and bkw are not ordered by containment.
+  expect_warning(bad <- anova(f_ekw, f_bkw), "not nested")
+  expect_true(is.na(bad$`Pr(>Chisq)`[2L]))
+  expect_true(is.finite(bad$Chisq[2L]))   # the statistic is still shown
+
+  ## The relation is read off the registry, so it cannot drift from the specs.
+  nested <- gq(".gkwq_family_nested")
+  expect_true(nested("kw", "ekw"));  expect_true(nested("kw", "gkw"))
+  expect_true(nested("beta", "mc")); expect_true(nested("mc", "gkw"))
+  expect_false(nested("ekw", "bkw")); expect_false(nested("bkw", "ekw"))
+  expect_false(nested("ekw", "kw"))   # containment is strict and directed
+})
+
+test_that("a likelihood that falls as Df rises is not reported as p = 1", {
+  ## pchisq() of a negative statistic returns 1, so a larger model that failed
+  ## to converge printed as a comfortable "keep the smaller one". The fits are
+  ## constructed by hand rather than hunted for, so the case is the same on
+  ## every platform.
+  set.seed(41); n <- 150; x <- stats::runif(n)
+  d <- data.frame(y = stats::qbeta(stats::runif(n), 2 + x, 3), x = x)
+  a <- suppressWarnings(gkwqreg(y ~ x, d, tau = 0.5, family = "kw"))
+  b <- suppressWarnings(gkwqreg(y ~ x, d, tau = 0.5, family = "ekw"))
+  b$loglik <- a$loglik - 5           # the larger model, fitting worse
+
+  expect_warning(out <- anova(a, b), "falls as the dimension rises")
+  expect_lt(out$Chisq[2L], 0)
+  expect_true(is.na(out$`Pr(>Chisq)`[2L]))
+})
+
+test_that("a link is checked against the range of the parameter it carries", {
+  ## .GKWQ_POS_LINKS was defined for the nuisance parts and never consulted, so
+  ## a unit link on a shape passed in silence: link = c(alpha = "logit")
+  ## confines alpha to (0,1) and the fit converges onto the boundary at 1,
+  ## reporting nothing. Both ends of the rule are checked here.
+  set.seed(9); n <- 80; x <- stats::runif(n)
+  d <- data.frame(y = stats::qbeta(stats::runif(n), 2 + x, 3), x = x)
+
+  for (lk in c("logit", "probit", "cauchy", "cloglog")) {
+    expect_error(gkwqreg(y ~ x, d, tau = 0.5, family = "kw",
+                         link = stats::setNames(lk, "alpha")),
+                 "must map to \\(0, Inf\\)", info = lk)
+  }
+  for (lk in c("log", "sqrt", "identity")) {
+    expect_no_error(suppressWarnings(
+      gkwqreg(y ~ x, d, tau = 0.5, family = "kw",
+              link = stats::setNames(lk, "alpha"))))
+  }
+
+  ## The quantile keeps its own rule, in the other direction.
+  expect_error(gkwqreg(y ~ x, d, tau = 0.5, family = "kw", link = c(mu = "log")),
+               "must map to \\(0,1\\)")
+})
+
+test_that("vuong_test refuses the comparisons its reference cannot support", {
+  ## Vuong's statistic is asymptotically N(0,1) only for non-nested models.
+  ## Under nesting omega^2 tends to zero and n*LR converges to a mixture of
+  ## chi-squares, so the normal reference invents a verdict: kw against ekw
+  ## returned z = 14.5, p = 1e-47. anova() already refused the reverse mistake.
+  set.seed(13); n <- 200; x <- stats::runif(n)
+  d <- data.frame(y = stats::qbeta(stats::runif(n), 2 + x, 3), x = x)
+  fk <- suppressWarnings(gkwqreg(y ~ x, d, tau = 0.5, family = "kw"))
+  fe <- suppressWarnings(gkwqreg(y ~ x, d, tau = 0.5, family = "ekw"))
+  fb <- suppressWarnings(gkwqreg(y ~ x, d, tau = 0.5, family = "bkw"))
+
+  expect_error(vuong_test(fk, fe), "nested")
+  expect_error(vuong_test(fe, fk), "nested")     # the direction does not matter
+  expect_error(vuong_test(fk, fk), "two different models")
+
+  ## Two genuinely unordered families are exactly what the test is for.
+  v <- vuong_test(fe, fb)
+  expect_true(is.finite(v$statistic))
+  expect_true(is.finite(v$p.value))
+
+  ## And so is one family under two anchors: non-nested, equal dimension, which
+  ## is where anova() sends the user.
+  a1 <- suppressWarnings(gkwqreg(y ~ x, d, tau = 0.5, family = "kw", anchor = "beta"))
+  a2 <- suppressWarnings(gkwqreg(y ~ x, d, tau = 0.5, family = "kw", anchor = "alpha"))
+  expect_true(is.finite(vuong_test(a1, a2)$statistic))
+})

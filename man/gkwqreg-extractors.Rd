@@ -66,8 +66,10 @@ of \code{\link[stats:update.formula]{stats::update.formula()}}, applied to the m
 call and returns the new fit; if \code{FALSE} it returns the unevaluated call,
 which is useful for inspection or for deferred evaluation.}
 
-\item{level}{Confidence level recorded by \code{summary()} and used when its
-result is printed or post-processed.}
+\item{level}{Confidence level stored on the \code{summary()} object for a caller
+that wants it. The printed table reports estimates, standard errors and
+p-values rather than an interval, so changing \code{level} does not change what
+\code{print()} shows; use \code{\link[=confint]{confint()}} for an interval at a chosen level.}
 
 \item{vcov_type}{Which covariance estimator \code{summary()} should use for its
 standard errors, one of \code{"expected"}, \code{"observed"} or \code{"sandwich"}; see

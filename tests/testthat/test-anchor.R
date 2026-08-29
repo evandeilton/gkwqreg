@@ -93,3 +93,35 @@ test_that("the anchors overflow in OPPOSITE tails, and neither ever fails", {
   expect_true(all(is.finite(logdens(0.5, 2, b, 1, 0, 1, delta_is_zero = TRUE))))
   expect_true(all(is.finite(logdens(0.5, a, 2, 1, 0, 1, delta_is_zero = TRUE))))
 })
+
+test_that("the gamma solve brackets a root that grows with the clamp", {
+  ## The beta family's anchor has no closed form; gamma comes from a root find,
+  ## bracketed at [1e-8, 1e8] on both sides. The root grows like 1/(1 - mu) and
+  ## clamp01 holds mu only at 1 - eps_mu, so that ceiling is reachable: at
+  ## mu = 1 - 1e-8 with tau = 0.05 the root is 3.0e8 and the solve returned NA.
+  ##
+  ## On the tape the consequence is not local to the observation. A NaN shape
+  ## goes into ATOMIC_REVERSE, ibeta_deriv is evaluated there, and the entire
+  ## gradient comes back NaN -- with the first entries exactly 0 rather than
+  ## NaN, which is worse than a clean failure.
+  gs <- gq(".gkwq_gamma_solve")
+
+  ## With delta = 0 the root is elementary: I_mu(gamma, 1) = mu^gamma = tau.
+  for (mu in c(0.99, 0.999, 1 - 1e-6, 1 - 1e-8)) {
+    for (tau in c(0.5, 0.05)) {
+      expect_equal(gs(mu, 1, tau), log(tau) / log(mu), tolerance = 1e-6,
+                   info = sprintf("mu = %.12g, tau = %.2f", mu, tau))
+    }
+  }
+
+  ## And the tape stays finite as mu is driven onto the clamp.
+  d <- sim_kw(n = 60, seed = 3)
+  obj <- make_obj("beta", d, tau = 0.5)
+  i_mu <- grep("^beta1", names(obj$par))[1L]
+  for (v in c(10, 20, 30)) {
+    p <- obj$par; p[] <- 0; p[i_mu] <- v
+    expect_true(is.finite(obj$fn(p)), label = sprintf("nll finite at eta = %g", v))
+    expect_true(all(is.finite(as.numeric(obj$gr(p)))),
+                label = sprintf("gradient finite at eta = %g", v))
+  }
+})

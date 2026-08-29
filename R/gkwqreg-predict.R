@@ -23,11 +23,12 @@
   list(X = X, offsets = O)
 }
 
-.gkwq_eta_mu_theta <- function(object, newdata = NULL) {
+.gkwq_eta_mu_theta <- function(object, newdata = NULL,
+                               na.action = stats::na.pass) {
   if (is.null(newdata)) {
     eta <- object$linear.predictors
   } else {
-    nd <- .gkwq_newdata_matrices(object, newdata)
+    nd <- .gkwq_newdata_matrices(object, newdata, na.action = na.action)
     eta <- stats::setNames(lapply(object$parts, function(p) {
       as.numeric(nd$X[[p]] %*% object$coef_list[[p]]) + nd$offsets[[p]]
     }), object$parts)
@@ -237,10 +238,10 @@ predict.gkwqreg <- function(object, newdata = NULL,
   type <- match.arg(type)
 
   if (type == "terms") {
-    return(.gkwq_predict_terms(object, newdata))
+    return(.gkwq_predict_terms(object, newdata, na.action = na.action))
   }
 
-  em <- .gkwq_eta_mu_theta(object, newdata)
+  em <- .gkwq_eta_mu_theta(object, newdata, na.action = na.action)
   if (type == "link") {
     return(as.data.frame(em$eta))
   }
@@ -300,12 +301,13 @@ predict.gkwqreg <- function(object, newdata = NULL,
   }
 }
 
-.gkwq_predict_terms <- function(object, newdata) {
+.gkwq_predict_terms <- function(object, newdata,
+                                na.action = stats::na.pass) {
   if (is.null(newdata)) {
     X <- lapply(object$parts, function(p) model.matrix(object, part = p))
     names(X) <- object$parts
   } else {
-    X <- .gkwq_newdata_matrices(object, newdata)$X
+    X <- .gkwq_newdata_matrices(object, newdata, na.action = na.action)$X
   }
   stats::setNames(lapply(object$parts, function(p) {
     b <- object$coef_list[[p]]
@@ -316,6 +318,7 @@ predict.gkwqreg <- function(object, newdata = NULL,
   }), object$parts)
 }
 
+#' @rdname gkwqregs-methods
 #' @export
 predict.gkwqregs <- function(object, newdata = NULL, ...) {
   out <- lapply(object$fits, predict, newdata = newdata, ...)

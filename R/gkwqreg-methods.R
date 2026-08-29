@@ -59,8 +59,10 @@
 #'   `model.matrix()` take exactly one part and default to `"mu"`.
 #' @param k The penalty per parameter in `AIC()`. The default `k = 2` gives the
 #'   usual Akaike criterion; `k = log(nobs(object))` reproduces `BIC()`.
-#' @param level Confidence level recorded by `summary()` and used when its
-#'   result is printed or post-processed.
+#' @param level Confidence level stored on the `summary()` object for a caller
+#'   that wants it. The printed table reports estimates, standard errors and
+#'   p-values rather than an interval, so changing `level` does not change what
+#'   `print()` shows; use [confint()] for an interval at a chosen level.
 #' @param vcov_type Which covariance estimator `summary()` should use for its
 #'   standard errors, one of `"expected"`, `"observed"` or `"sandwich"`; see
 #'   [vcov.gkwqreg()]. `NULL`, the default, uses the type recorded in the fit's
@@ -869,11 +871,18 @@ summary.gkwqreg <- function(object, level = 0.95,
     rq <- residuals(object, type = "quantile")
     ## Koenker-Machado style goodness of fit on the scale the quantile actually
     ## targets: check loss against the best constant quantile.
+    ## object$pinball comes from the tape, where it is weighted and divided by
+    ## sum(w). The null loss it is compared against, and the coverage reported
+    ## beside it, have to use the same weights: a Pseudo-R1 built from a
+    ## weighted numerator and an unweighted denominator is not a ratio of
+    ## anything. With unit weights this is the plain mean, as before.
+    w <- object$weights
+    if (is.null(w)) w <- rep(1, length(y))
     null_q <- stats::quantile(y, probs = object$tau, names = FALSE, type = 7)
     e0 <- y - null_q
-    pin0 <- mean(e0 * (object$tau - (e0 < 0)))
+    pin0 <- sum(w * e0 * (object$tau - (e0 < 0))) / sum(w)
     pseudo_r1 <- if (pin0 > 0) 1 - object$pinball / pin0 else NA_real_
-    coverage <- mean(y <= object$fitted.values)
+    coverage <- sum(w * (y <= object$fitted.values)) / sum(w)
     resid_summary <- stats::quantile(rq[is.finite(rq)], c(0, .25, .5, .75, 1),
                                      names = FALSE)
   }
@@ -996,6 +1005,9 @@ print.gkwqregs <- function(x, ...) {
 #'
 #' @param object A `"gkwqregs"` container, as returned by [gkwqreg()] with a
 #'   vector-valued `tau`.
+#' @param newdata Used by `predict()` only: an optional data frame in which to
+#'   evaluate every fit, with the same requirements as
+#'   [predict.gkwqreg()]. `NULL`, the default, uses the estimation data.
 #' @param ... Passed on to the corresponding method for each individual fit.
 #'
 #' @return
@@ -1004,6 +1016,10 @@ print.gkwqregs <- function(x, ...) {
 #' * `fitted()`: a numeric matrix with one row per observation and one column
 #'   per level, holding each fit's conditional quantiles.
 #' * `summary()`: a list of `"summary.gkwqreg"` objects, one per level.
+#' * `predict()`: a numeric matrix with one row per prediction and one column
+#'   per level, from each fit in turn.
+#' * `residuals()`: a numeric matrix with one row per observation and one column
+#'   per level.
 #' * `logLik()`: never returns; it raises an error explaining why.
 #'
 #' @seealso [gkwqreg()], [quantile_process()] for the quantile process on a

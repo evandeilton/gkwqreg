@@ -8,6 +8,21 @@
 ## the arithmetic would happily produce a number.
 ## ---------------------------------------------------------------------------
 
+## Does family `a` sit strictly inside family `b`? Read off the registry rather
+## than tabulated, so it cannot drift from the specs: `a` is inside `b` exactly
+## when `b` leaves free every parameter `a` leaves free, and at least one more.
+## The relation is a lattice, not a chain -- kw is inside both ekw and bkw,
+## which are inside neither each other -- and only chains admit an LR test.
+.gkwq_family_nested <- function(a, b) {
+  fixed_of <- function(f) {
+    fx <- .gkwq_family_info(f, NULL)$fixed
+    names(fx)[!vapply(fx, is.null, logical(1))]
+  }
+  fa <- fixed_of(a)
+  fb <- fixed_of(b)
+  all(fb %in% fa) && length(fa) > length(fb)
+}
+
 .gkwq_check_comparable <- function(objects, what = "compared") {
   taus <- vapply(objects, function(o) o$tau, numeric(1))
   if (length(unique(taus)) > 1L) {
@@ -246,7 +261,24 @@ anova.gkwqreg <- function(object, ...) {
 
   stat <- c(NA_real_, 2 * diff(ll))
   ddf <- c(NA_real_, diff(df))
-  p <- ifelse(is.na(stat) | ddf <= 0, NA_real_,
+
+  ## The family lattice is not a chain: ekw and bkw both contain kw and neither
+  ## contains the other, and 9 of the 21 pairs are unordered like that. A
+  ## likelihood-ratio test does not apply to them, so the statistic must not be
+  ## reported as one.
+  nested <- c(NA, vapply(seq_along(objects)[-1L], function(i) {
+    identical(fam[i - 1L], fam[i]) || .gkwq_family_nested(fam[i - 1L], fam[i])
+  }, logical(1)))
+
+  ## A log-likelihood that falls as Df rises is not evidence about the data; it
+  ## says one of the fits stopped short of its maximum. Reported through
+  ## pchisq() a negative statistic silently becomes p = 1, which reads as a
+  ## comfortable "keep the smaller model" when the real message is that the
+  ## larger fit failed.
+  negative <- !is.na(stat) & stat < 0
+
+  p <- ifelse(is.na(stat) | ddf <= 0 | negative | !nested %in% TRUE,
+              NA_real_,
               stats::pchisq(stat, pmax(ddf, 1), lower.tail = FALSE))
 
   out <- data.frame(family = fam, Df = df, logLik = ll, AIC = -2 * ll + 2 * df,
@@ -260,6 +292,20 @@ anova.gkwqreg <- function(object, ...) {
   if (any(!is.na(ddf) & ddf <= 0)) {
     warning("some compared models have the same dimension; a likelihood-ratio ",
             "test does not apply to them. Use AIC or a Vuong test.",
+            call. = FALSE)
+  }
+  if (any(!nested %in% TRUE & !is.na(ddf))) {
+    bad <- which(!nested %in% TRUE & !is.na(ddf))
+    warning("these families are not nested, so a likelihood-ratio test does ",
+            "not apply and Pr(>Chisq) is NA: ",
+            paste(sprintf("%s vs %s", fam[bad - 1L], fam[bad]), collapse = ", "),
+            ". Use AIC, BIC or a Vuong test.", call. = FALSE)
+  }
+  if (any(negative)) {
+    warning("the log-likelihood falls as the dimension rises, which cannot ",
+            "happen at two maxima: the larger fit has not converged. ",
+            "Pr(>Chisq) is NA for ", sum(negative), " comparison(s); refit or ",
+            "discard the offending model rather than reading the test.",
             call. = FALSE)
   }
   class(out) <- c("anova.gkwqreg", "anova", "data.frame")
@@ -461,12 +507,39 @@ vuong_test <- function(object, object2, correction = TRUE) {
   if (object$nobs != object2$nobs) {
     stop("both fits must use the same observations.", call. = FALSE)
   }
+  ## Vuong's statistic is asymptotically standard normal only when the two
+  ## models are non-nested. Under nesting omega^2 tends to zero, n*LR converges
+  ## to a mixture of chi-squares instead, and the N(0,1) reference reports a
+  ## verdict it has no basis for -- kw against ekw gives z = 14.5 here. anova()
+  ## already refuses the reverse mistake; this refuses its own.
+  if (.gkwq_family_nested(object$family, object2$family) ||
+      .gkwq_family_nested(object2$family, object$family)) {
+    stop("families ", sQuote(object$family), " and ", sQuote(object2$family),
+         " are nested, so the Vuong statistic is not standard normal under ",
+         "the null. Use anova() for a likelihood-ratio test instead.",
+         call. = FALSE)
+  }
+  ## Same family under two anchors is the case this test exists for: those are
+  ## non-nested models of equal dimension, and anova() sends them here. Only a
+  ## fit compared with itself is refused.
+  if (identical(object$family, object2$family) &&
+      identical(object$anchor, object2$anchor)) {
+    stop("both fits use family ", sQuote(object$family), " with anchor ",
+         sQuote(object$anchor), "; a Vuong test compares two different models.",
+         call. = FALSE)
+  }
   n <- object$nobs
   m <- object$loglik_i - object2$loglik_i
   if (correction) {
     m <- m - (object$npar - object2$npar) * log(n) / (2 * n)
   }
   s <- stats::sd(m)
+  ## Two fits that agree observation by observation leave s = 0, and the
+  ## statistic is 0/0. That is a degenerate comparison, not a tie.
+  if (!is.finite(s) || s <= 0) {
+    stop("the two fits have identical per-observation log-likelihoods, so the ",
+         "Vuong statistic is undefined.", call. = FALSE)
+  }
   stat <- sqrt(n) * mean(m) / s
   p <- 2 * stats::pnorm(-abs(stat))
   structure(list(statistic = stat, p.value = p, n = n,
@@ -484,7 +557,9 @@ print.gkwq_vuong <- function(x, digits = 4, ...) {
   cat(sprintf("  model 1: %s\n  model 2: %s\n", x$model1, x$model2))
   cat(sprintf("\n  z = %s, p-value = %s\n", format(x$statistic, digits = digits),
               base::format.pval(x$p.value, digits = digits)))
-  cat(sprintf("  %s\n", if (x$p.value > 0.05) "neither model is favoured" else
+  cat(sprintf("  %s\n",
+    if (!is.finite(x$p.value)) "the statistic is undefined; no verdict" else
+    if (x$p.value > 0.05) "neither model is favoured" else
     if (x$statistic > 0) "model 1 is favoured" else "model 2 is favoured"))
   invisible(x)
 }
@@ -504,9 +579,10 @@ print.gkwq_vuong <- function(x, digits = 4, ...) {
 #'   Restricting it is often sensible: `"gkw"` is weakly identified in every
 #'   parametrization and warns accordingly, and a family that cannot represent
 #'   the data at all merely costs time.
-#' @param ... Currently unused; present for future extension. Arguments given
-#'   here do not reach [gkwqreg()]. To vary anything other than the family,
-#'   change it in `object` and call this function again.
+#' @param ... Overrides applied to the stored call before each family is
+#'   refitted. Anything valid for [gkwqreg()] may be given, so a single
+#'   `compare_families(fit, tau = 0.9)` refits every family at that level. The
+#'   `family` argument itself is set per row and cannot be overridden here.
 #'
 #' @details
 #' The stored call of `object` is re-evaluated once per family, with `family`
