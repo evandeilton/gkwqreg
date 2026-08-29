@@ -1005,6 +1005,9 @@ print.gkwqregs <- function(x, ...) {
 #'
 #' @param object A `"gkwqregs"` container, as returned by [gkwqreg()] with a
 #'   vector-valued `tau`.
+#' @param newdata Used by `predict()` only: an optional data frame in which to
+#'   evaluate every fit, with the same requirements as
+#'   [predict.gkwqreg()]. `NULL`, the default, uses the estimation data.
 #' @param ... Passed on to the corresponding method for each individual fit.
 #'
 #' @return

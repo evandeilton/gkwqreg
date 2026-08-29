@@ -27,6 +27,10 @@
 vector-valued \code{tau}.}
 
 \item{...}{Passed on to the corresponding method for each individual fit.}
+
+\item{newdata}{Used by \code{predict()} only: an optional data frame in which to
+evaluate every fit, with the same requirements as
+\code{\link[=predict.gkwqreg]{predict.gkwqreg()}}. \code{NULL}, the default, uses the estimation data.}
 }
 \value{
 \itemize{

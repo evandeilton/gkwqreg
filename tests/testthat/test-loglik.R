@@ -59,15 +59,24 @@ test_that("the log-domain cascade holds at responses within 1e-12 of 1", {
     expect_lt(abs(got - want), 1e-6)
   }
   ## This block used to assert that gkwdist::dgkw returned -Inf here, which was
-  ## the reason the cascade was written. gkwdist 1.1.6 handles the boundary, so
-  ## the assertion became false. It is more useful the other way round: an
-  ## independent implementation now reaches the same values, which is a check on
-  ## the cascade rather than a note about someone else's defect.
+  ## the reason the cascade was written. Whether it still does depends on the
+  ## version installed: 1.1.5 returns -Inf, 1.1.6 handles the boundary. Neither
+  ## is something this package's tests should pin, so the comparison is made
+  ## only where gkwdist itself produces a finite value -- where both can compute
+  ## it, they must agree, and that is a check on the cascade rather than a claim
+  ## about someone else's release.
   skip_if_not_installed("gkwdist")
+  ## Mid-range first, so the block cannot pass by comparing nothing: every
+  ## version computes this one, and agreement there is the anchor.
+  expect_equal(logdens(0.6, alpha, beta, 1, 0, 1, delta_is_zero = TRUE),
+               gkwdist::dgkw(0.6, alpha, beta, 1, 0, 1, log = TRUE),
+               tolerance = 1e-10)
+  ## Then the boundary, wherever the installed version can still reach it.
   for (eps in c(1e-8, 1e-10, 1e-12, 1e-14)) {
     y <- 1 - eps
-    expect_equal(logdens(y, alpha, beta, 1, 0, 1, delta_is_zero = TRUE),
-                 gkwdist::dgkw(y, alpha, beta, 1, 0, 1, log = TRUE),
+    ref <- gkwdist::dgkw(y, alpha, beta, 1, 0, 1, log = TRUE)
+    if (!is.finite(ref)) next
+    expect_equal(logdens(y, alpha, beta, 1, 0, 1, delta_is_zero = TRUE), ref,
                  tolerance = 1e-10, info = sprintf("1 - y = %.0e", eps))
   }
 })
