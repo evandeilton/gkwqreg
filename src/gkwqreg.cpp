@@ -110,7 +110,13 @@ inline Type log_z(const Type &tau, const Type &g, const Type &d, int z_mode) {
   arg[0] = tau;
   arg[1] = g;
   arg[2] = d + Type(1.0);
-  return log(qbeta_safe(arg));
+  // The only log() in this file that is not already guarded. z_modes 1 and 2
+  // are safe by construction -- log(tau) with tau validated in (0,1), and
+  // log1m_exp of a strictly negative argument. Here qbeta_safe underflows to
+  // exactly 0 once gamma is small enough, and the -Inf that follows does not
+  // stay local: it reaches apply_anchor through lw / lden and takes the whole
+  // gradient with it.
+  return neg_clamp(log(pos_clamp(qbeta_safe(arg), Type(GKWQ_LOG_FLOOR))));
 }
 
 // ---------------------------------------------------------------------

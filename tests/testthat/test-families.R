@@ -153,3 +153,27 @@ test_that("a likelihood that falls as Df rises is not reported as p = 1", {
   expect_lt(out$Chisq[2L], 0)
   expect_true(is.na(out$`Pr(>Chisq)`[2L]))
 })
+
+test_that("a link is checked against the range of the parameter it carries", {
+  ## .GKWQ_POS_LINKS was defined for the nuisance parts and never consulted, so
+  ## a unit link on a shape passed in silence: link = c(alpha = "logit")
+  ## confines alpha to (0,1) and the fit converges onto the boundary at 1,
+  ## reporting nothing. Both ends of the rule are checked here.
+  set.seed(9); n <- 80; x <- stats::runif(n)
+  d <- data.frame(y = stats::qbeta(stats::runif(n), 2 + x, 3), x = x)
+
+  for (lk in c("logit", "probit", "cauchy", "cloglog")) {
+    expect_error(gkwqreg(y ~ x, d, tau = 0.5, family = "kw",
+                         link = stats::setNames(lk, "alpha")),
+                 "must map to \\(0, Inf\\)", info = lk)
+  }
+  for (lk in c("log", "sqrt", "identity")) {
+    expect_no_error(suppressWarnings(
+      gkwqreg(y ~ x, d, tau = 0.5, family = "kw",
+              link = stats::setNames(lk, "alpha"))))
+  }
+
+  ## The quantile keeps its own rule, in the other direction.
+  expect_error(gkwqreg(y ~ x, d, tau = 0.5, family = "kw", link = c(mu = "log")),
+               "must map to \\(0,1\\)")
+})

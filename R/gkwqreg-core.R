@@ -841,6 +841,20 @@ gkwqreg <- function(formula, data, tau = 0.5,
         d <- diag(vc)
         se <- ifelse(d > 0, sqrt(d), NA_real_)
         names(se) <- nms
+        ## A positive diagonal does not make the matrix positive definite:
+        ## H = [[-1, 2], [2, -1]] has eigenvalues 1 and -3, and its inverse has
+        ## diagonal (1/3, 1/3). Every standard error would be reported at a
+        ## saddle point with nothing flagged, which is exactly where Wald
+        ## inference is meaningless. The eigenvalues settle it.
+        ev <- tryCatch(eigen(hess, symmetric = TRUE, only.values = TRUE)$values,
+                       error = function(e) NULL)
+        if (!is.null(ev) && min(ev) <= 0 && !anyNA(se)) {
+          warning("the information matrix is not positive definite (smallest ",
+                  "eigenvalue ", format(min(ev), digits = 3), "), so the fit ",
+                  "is not at a maximum and the Wald standard errors below do ",
+                  "not describe one. Treat them as provisional.",
+                  call. = FALSE)
+        }
         if (anyNA(se)) {
           warning("the information matrix is not positive definite, so ",
                   sum(is.na(se)), " standard error(s) are unavailable. ",
