@@ -507,12 +507,39 @@ vuong_test <- function(object, object2, correction = TRUE) {
   if (object$nobs != object2$nobs) {
     stop("both fits must use the same observations.", call. = FALSE)
   }
+  ## Vuong's statistic is asymptotically standard normal only when the two
+  ## models are non-nested. Under nesting omega^2 tends to zero, n*LR converges
+  ## to a mixture of chi-squares instead, and the N(0,1) reference reports a
+  ## verdict it has no basis for -- kw against ekw gives z = 14.5 here. anova()
+  ## already refuses the reverse mistake; this refuses its own.
+  if (.gkwq_family_nested(object$family, object2$family) ||
+      .gkwq_family_nested(object2$family, object$family)) {
+    stop("families ", sQuote(object$family), " and ", sQuote(object2$family),
+         " are nested, so the Vuong statistic is not standard normal under ",
+         "the null. Use anova() for a likelihood-ratio test instead.",
+         call. = FALSE)
+  }
+  ## Same family under two anchors is the case this test exists for: those are
+  ## non-nested models of equal dimension, and anova() sends them here. Only a
+  ## fit compared with itself is refused.
+  if (identical(object$family, object2$family) &&
+      identical(object$anchor, object2$anchor)) {
+    stop("both fits use family ", sQuote(object$family), " with anchor ",
+         sQuote(object$anchor), "; a Vuong test compares two different models.",
+         call. = FALSE)
+  }
   n <- object$nobs
   m <- object$loglik_i - object2$loglik_i
   if (correction) {
     m <- m - (object$npar - object2$npar) * log(n) / (2 * n)
   }
   s <- stats::sd(m)
+  ## Two fits that agree observation by observation leave s = 0, and the
+  ## statistic is 0/0. That is a degenerate comparison, not a tie.
+  if (!is.finite(s) || s <= 0) {
+    stop("the two fits have identical per-observation log-likelihoods, so the ",
+         "Vuong statistic is undefined.", call. = FALSE)
+  }
   stat <- sqrt(n) * mean(m) / s
   p <- 2 * stats::pnorm(-abs(stat))
   structure(list(statistic = stat, p.value = p, n = n,
@@ -530,7 +557,9 @@ print.gkwq_vuong <- function(x, digits = 4, ...) {
   cat(sprintf("  model 1: %s\n  model 2: %s\n", x$model1, x$model2))
   cat(sprintf("\n  z = %s, p-value = %s\n", format(x$statistic, digits = digits),
               base::format.pval(x$p.value, digits = digits)))
-  cat(sprintf("  %s\n", if (x$p.value > 0.05) "neither model is favoured" else
+  cat(sprintf("  %s\n",
+    if (!is.finite(x$p.value)) "the statistic is undefined; no verdict" else
+    if (x$p.value > 0.05) "neither model is favoured" else
     if (x$statistic > 0) "model 1 is favoured" else "model 2 is favoured"))
   invisible(x)
 }

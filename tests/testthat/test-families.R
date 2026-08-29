@@ -177,3 +177,30 @@ test_that("a link is checked against the range of the parameter it carries", {
   expect_error(gkwqreg(y ~ x, d, tau = 0.5, family = "kw", link = c(mu = "log")),
                "must map to \\(0,1\\)")
 })
+
+test_that("vuong_test refuses the comparisons its reference cannot support", {
+  ## Vuong's statistic is asymptotically N(0,1) only for non-nested models.
+  ## Under nesting omega^2 tends to zero and n*LR converges to a mixture of
+  ## chi-squares, so the normal reference invents a verdict: kw against ekw
+  ## returned z = 14.5, p = 1e-47. anova() already refused the reverse mistake.
+  set.seed(13); n <- 200; x <- stats::runif(n)
+  d <- data.frame(y = stats::qbeta(stats::runif(n), 2 + x, 3), x = x)
+  fk <- suppressWarnings(gkwqreg(y ~ x, d, tau = 0.5, family = "kw"))
+  fe <- suppressWarnings(gkwqreg(y ~ x, d, tau = 0.5, family = "ekw"))
+  fb <- suppressWarnings(gkwqreg(y ~ x, d, tau = 0.5, family = "bkw"))
+
+  expect_error(vuong_test(fk, fe), "nested")
+  expect_error(vuong_test(fe, fk), "nested")     # the direction does not matter
+  expect_error(vuong_test(fk, fk), "two different models")
+
+  ## Two genuinely unordered families are exactly what the test is for.
+  v <- vuong_test(fe, fb)
+  expect_true(is.finite(v$statistic))
+  expect_true(is.finite(v$p.value))
+
+  ## And so is one family under two anchors: non-nested, equal dimension, which
+  ## is where anova() sends the user.
+  a1 <- suppressWarnings(gkwqreg(y ~ x, d, tau = 0.5, family = "kw", anchor = "beta"))
+  a2 <- suppressWarnings(gkwqreg(y ~ x, d, tau = 0.5, family = "kw", anchor = "alpha"))
+  expect_true(is.finite(vuong_test(a1, a2)$statistic))
+})
