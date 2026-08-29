@@ -4,7 +4,7 @@
 [![R-CMD-check](https://github.com/evandeilton/gkwqreg/actions/workflows/R-CMD-check.yaml/badge.svg)](https://github.com/evandeilton/gkwqreg/actions/workflows/R-CMD-check.yaml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Lifecycle: experimental](https://img.shields.io/badge/lifecycle-experimental-orange.svg)](https://lifecycle.r-lib.org/articles/stages.html#experimental)
-[![R >= 3.5](https://img.shields.io/badge/R-%3E%3D%203.5-blue.svg)](https://cran.r-project.org/)
+[![R >= 4.1](https://img.shields.io/badge/R-%3E%3D%204.1-blue.svg)](https://cran.r-project.org/)
 <!-- badges: end -->
 
 **Parametric quantile regression for the Generalized Kumaraswamy family**
@@ -101,7 +101,7 @@ error. Line by line:
 | Line | What it tells you |
 |---|---|
 | `mu:` block | The quantile model. **These are effects on the log quantile odds**, not on a mean and not on the odds of an event |
-| `alpha:` block | A shape parameter. It controls the spread of the conditional distribution, not the quantile you are modelling |
+| `alpha:` block | A nuisance parameter. It controls the spread of the conditional distribution, not the quantile you are modelling |
 | `Anchored parameter` | Which parameter was eliminated to make room for the quantile. A **modeling choice** — see below |
 | `Empirical coverage` | Share of observations below the fitted quantile. Should sit at `tau`. **0.895 vs 0.900 — the model is doing its job** |
 | `Information condition number` | Conditioning. Small (here 31) is healthy; above `1e8` means the standard errors are unreliable |
@@ -178,7 +178,11 @@ vignette("gkwqreg-design")     # the vocabulary and the design decisions
 
 ## The seven families
 
-They form a genuine nesting, so family selection is an ordinary likelihood-ratio test.
+They form a nesting **lattice**, not a single chain, so a likelihood-ratio test applies
+along a chain of containments. `kw` sits inside all of `ekw`, `kkw`, `bkw` and `gkw`;
+`ekw` inside `kkw` and `gkw`; `beta` inside `mc`, `bkw` and `gkw`. But `ekw` and `bkw`
+contain neither each other, and `anova()` returns `NA` with a warning for any such pair
+rather than reporting a test that does not apply.
 
 | family | free parameters | constraints | default anchor |
 |---|---|---|---|
@@ -198,7 +202,7 @@ compare_families(fit, families = c("kw", "ekw", "beta"))
 #> 3   beta  gamma  4 210.5077 -413.0155 -395.4278 0.03196525      TRUE
 ```
 
-Compare on `pinball` when choosing out of sample: check loss is what a quantile estimate
+Compare on `pinball` when choosing out of sample: the pinball loss is what a quantile estimate
 actually targets.
 
 ## The anchor is a modeling choice

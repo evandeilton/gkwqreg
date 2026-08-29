@@ -85,9 +85,12 @@ quantile. A modeling choice, not an internal detail: two anchors on the same dat
 different models of equal dimension unless the nuisance parameters are saturated.
 *Avoid*: pivot, eliminated parameter, reparametrization target, solve-for.
 
-**Anchor solve.** The closed-form expression giving the anchor from the conditional
-quantile, the quantile level and the nuisance parameters. Always a ratio of two negative
-logarithms, hence strictly positive without any box constraint.
+**Anchor solve.** The expression giving the anchor from the conditional quantile, the
+quantile level and the nuisance parameters. For six of the seven families it is closed
+form — a ratio of two negative logarithms, hence strictly positive without any box
+constraint. The `beta` family is the exception: its anchor is `gamma`, the equation
+`I_mu(gamma, delta + 1) = tau` does not invert, and `gamma` comes from a one-dimensional
+root find.
 *Avoid*: inversion, back-transform, link.
 
 That last clause is the load-bearing one. For the Kumaraswamy the solve is
@@ -347,7 +350,7 @@ already does for models without random effects. Two tempting alternatives are bo
 here:
 
 - `obj$he()` would require second-order differentiation *through* the incomplete-beta
-  atomic, for `bkw`, `gkw` and `mc`.
+  atomic, for `bkw`, `gkw`, `mc` and `beta` — the same four named above.
 - The naive `J' H J` sandwich of the unreparametrized Hessian omits the curvature term
   `sum_k g_k grad^2 theta_k` and is simply wrong in a regression.
 
@@ -382,7 +385,7 @@ nesting-lattice test for the shared template.
 # References
 
 - Boik, R. J. and Robison-Cox, J. F. (1998). Derivatives of the incomplete beta function.
-  *Journal of Statistical Software* **3**(1), 1-20. \doi{10.18637/jss.v003.i01}
+  *Journal of Statistical Software* **3**(1), 1-20. [doi:10.18637/jss.v003.i01](https://doi.org/10.18637/jss.v003.i01)
   (The journal's own article page misspells the second author as "Robinson-Cox".
   "Robison-Cox" is the spelling in Crossref's deposit and on the author's own
   faculty page at Montana State University; it is the one used here.)
@@ -390,4 +393,4 @@ nesting-lattice test for the shared template.
   inference. *JRSS-B* **49**(1), 1-18.
 - Mitnik, P. A. and Baek, S. (2013). The Kumaraswamy distribution: median-dispersion
   re-parameterizations for regression modeling and simulation-based estimation.
-  *Statistical Papers* **54**(1), 177-192. \doi{10.1007/s00362-011-0417-y}
+  *Statistical Papers* **54**(1), 177-192. [doi:10.1007/s00362-011-0417-y](https://doi.org/10.1007/s00362-011-0417-y)
