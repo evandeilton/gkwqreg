@@ -169,9 +169,22 @@ inline double gamma_solve_double(double mu, double q, double tau) {
   double lo = 1e-8, hi = 1e8;
   // Rf_pbeta(x, a, b, lower_tail, log_p)
   double flo = Rf_pbeta(mu, lo, q, 1, 0) - tau;   // -> 1 - tau > 0
-  double fhi = Rf_pbeta(mu, hi, q, 1, 0) - tau;   // -> -tau     < 0
-  if (flo < 0.0 || fhi > 0.0)
-    return std::numeric_limits<double>::quiet_NaN();  // unreachable in theory
+  if (flo < 0.0)
+    return std::numeric_limits<double>::quiet_NaN();
+
+  // The root grows like 1/(1 - mu), and clamp01 only holds mu at 1 - eps_mu,
+  // so a fixed upper end is reachable rather than generous: at mu = 1 - 1e-8
+  // with tau = 0.05 the root is 3.0e8, past a bracket stopping at 1e8. A NaN
+  // there is not local to the observation -- ATOMIC_REVERSE then evaluates
+  // ibeta_deriv at a NaN shape and the whole gradient follows. Let the bracket
+  // follow the root instead.
+  double fhi = Rf_pbeta(mu, hi, q, 1, 0) - tau;
+  while (fhi > 0.0 && hi < 1e300) {
+    hi *= 16.0;
+    fhi = Rf_pbeta(mu, hi, q, 1, 0) - tau;
+  }
+  if (fhi > 0.0)
+    return std::numeric_limits<double>::quiet_NaN();
 
   for (int it = 0; it < 200; it++) {
     double mid = sqrt(lo * hi);                   // geometric bisection

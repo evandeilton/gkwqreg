@@ -1,22 +1,6 @@
 ## V8, V9, V10 -- differentiation. V9 and V10 are the tests that would have
 ## caught the two AD defects found during the design study.
 
-make_obj <- function(fam, d, tau = 0.5, par = NULL, anchor = NULL) {
-  info <- gq(".gkwq_family_info"); md_f <- gq(".gkwq_model_data")
-  val <- gq(".gkwq_validate_y"); lks <- gq(".gkwq_links")
-  scl <- gq(".gkwq_link_scales"); tdat <- gq(".gkwq_tmb_data")
-  tpar <- gq(".gkwq_tmb_params")
-  spec <- info(fam, anchor)
-  md <- md_f(y ~ x, d, spec$parts, NULL, stats::na.omit, NULL, NULL, NULL,
-             fam, spec$anchor)
-  yv <- val(md$y, 1e-10)
-  lk <- lks(NULL, spec$parts); sc <- scl(NULL, lk, spec$parts)
-  st <- lapply(spec$parts, function(p) numeric(ncol(md$X[[p]])))
-  names(st) <- spec$parts
-  TMB::MakeADFun(tdat(yv, md, spec, tau, lk, sc, gkwq_control()),
-                 tpar(st, md, spec), DLL = "gkwqreg", silent = TRUE)
-}
-
 test_that("V8: the anchor Jacobian matches a hand-derived analytic form", {
   ## The expected value is derived by hand, not recomputed the way the code
   ## computes it: beta(mu) = log(1-tau)/log(1-mu^a), so

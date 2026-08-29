@@ -186,7 +186,13 @@ gkwq_quantile <- function(tau, alpha = 1, beta = 1, gamma = 1, delta = 0,
   mu <- rep_len(mu, n); q <- rep_len(q, n); tau <- rep_len(tau, n)
   vapply(seq_len(n), function(i) {
     f <- function(lg) stats::pbeta(mu[i], exp(lg), q[i]) - tau[i]
-    out <- try(stats::uniroot(f, lower = log(1e-8), upper = log(1e8),
+    ## The root grows like 1/(1 - mu), and mu is clamped only to 1 - eps_mu, so
+    ## a fixed upper end is reachable rather than generous: at mu = 1 - 1e-8
+    ## with tau = 0.05 the root is 3.0e8, past a bracket stopping at 1e8, and
+    ## the solve returned NA. Let the bracket follow the root instead.
+    hi <- log(1e8)
+    while (hi < 700 && f(hi) > 0) hi <- hi + log(16)
+    out <- try(stats::uniroot(f, lower = log(1e-8), upper = hi,
                               tol = .Machine$double.eps^0.75)$root,
                silent = TRUE)
     if (inherits(out, "try-error")) NA_real_ else exp(out)
