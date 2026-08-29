@@ -89,7 +89,7 @@ anova(gkwqreg(y ~ x, data = d, tau = .5, family = "kw"),
 #> sub-family such as "ekw" or "kkw"; summary() reports the condition number so
 #> you can check.
 #> Warning in sqrt(d): NaNs produced
-#> Warning: the information matrix is not positive definite, so 4 standard
+#> Warning: the information matrix is not positive definite, so 2 standard
 #> error(s) are unavailable. This is the signature of a parameter drifting along a
 #> flat ridge; a smaller sub-family usually fixes it.
 #> Warning: the optimizer did not report convergence (code 1). Treat the estimates
@@ -99,7 +99,7 @@ anova(gkwqreg(y ~ x, data = d, tau = .5, family = "kw"),
 #>      Df logLik     AIC   Chisq Chi Df Pr(>Chisq)
 #> [1,]  3 208.53 -411.05                          
 #> [2,]  4 208.70 -409.40  0.3470      1     0.5558
-#> [3,]  6 206.56 -401.11 -4.2826      2     1.0000
+#> [3,]  6 206.94 -401.87 -3.5258      2     1.0000
 ```
 
 ## Against `quantreg`, under correct specification
@@ -216,8 +216,9 @@ error refers to the 0.9-quantile:
 ``` r
 
 round(summary(gq)$coefficients["mu:temp", ], 5)
+#> Warning in sqrt(d): NaNs produced
 #>   Estimate Std. Error    z value   Pr(>|z|) 
-#>    0.01179    0.00000        Inf    0.00000
+#>    0.01179         NA         NA         NA
 ```
 
 In `betareg` the coefficient on `temp` describes the **mean**.

@@ -186,7 +186,7 @@ larger family can never fit worse:</p>
 <span><span class="op">}</span>, <span class="fu"><a href="https://rdrr.io/r/base/numeric.html" class="external-link">numeric</a></span><span class="op">(</span><span class="fl">1</span><span class="op">)</span><span class="op">)</span></span>
 <span><span class="fu"><a href="https://rdrr.io/r/base/Round.html" class="external-link">round</a></span><span class="op">(</span><span class="va">ll</span>, <span class="fl">4</span><span class="op">)</span></span>
 <span><span class="co">#&gt;       kw      ekw      kkw      bkw      gkw </span></span>
-<span><span class="co">#&gt; 187.6676 187.6865 187.8980 187.6865 187.6865</span></span></code></pre></div>
+<span><span class="co">#&gt; 187.6676 187.6865 187.8980 187.6865 188.0378</span></span></code></pre></div>
 <p><strong>Part.</strong> One component of the multi-part formula,
 naming a parameter that carries its own linear predictor. Part one is
 always the conditional quantile; the rest follow family order with the
@@ -511,7 +511,7 @@ so a weakly identified fit is visible rather than silent:</p>
 <span>  <span class="fu"><a href="https://rdrr.io/r/base/warning.html" class="external-link">suppressWarnings</a></span><span class="op">(</span><span class="fu"><a href="../reference/gkwqreg.html">gkwqreg</a></span><span class="op">(</span><span class="va">y</span> <span class="op">~</span> <span class="va">x</span>, data <span class="op">=</span> <span class="va">d</span>, tau <span class="op">=</span> <span class="fl">0.5</span>, family <span class="op">=</span> <span class="va">f</span><span class="op">)</span><span class="op">)</span><span class="op">$</span><span class="va">cond_number</span></span>
 <span><span class="op">}</span>, <span class="fu"><a href="https://rdrr.io/r/base/numeric.html" class="external-link">numeric</a></span><span class="op">(</span><span class="fl">1</span><span class="op">)</span><span class="op">)</span></span>
 <span><span class="co">#&gt;           kw          ekw          gkw </span></span>
-<span><span class="co">#&gt; 6.015385e+00 9.664306e+01 4.426736e+12</span></span></code></pre></div>
+<span><span class="co">#&gt; 6.015385e+00 9.664306e+01 2.423467e+07</span></span></code></pre></div>
 <hr>
 </div>
 </div>
