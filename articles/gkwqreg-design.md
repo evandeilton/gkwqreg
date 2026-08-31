@@ -434,7 +434,7 @@ vapply(c("kw", "ekw", "gkw"), function(f) {
   suppressWarnings(gkwqreg(y ~ x, data = d, tau = 0.5, family = f))$cond_number
 }, numeric(1))
 #>           kw          ekw          gkw 
-#> 6.015385e+00 9.664306e+01 1.524682e+12
+#> 6.015385e+00 9.664306e+01 1.502951e+13
 ```
 
 ------------------------------------------------------------------------

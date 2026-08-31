@@ -88,12 +88,6 @@ d <- local({
 anova(gkwqreg(y ~ x, data = d, tau = .5, family = "kw"),
       gkwqreg(y ~ x, data = d, tau = .5, family = "ekw"),
       gkwqreg(y ~ x, data = d, tau = .5, family = "kkw"))
-#> Warning in sqrt(d): NaNs produced
-#> Warning: the information matrix is not positive definite, so 1 standard
-#> error(s) are unavailable. This is the signature of a parameter drifting along a
-#> flat ridge; a smaller sub-family usually fixes it.
-#> Warning: the optimizer did not report convergence (code 1). Treat the estimates
-#> as provisional.
 #> Likelihood-ratio test for Generalized Kumaraswamy quantile regression
 #> tau = 0.5, anchor = beta
 #>      Df logLik     AIC  Chisq Chi Df Pr(>Chisq)
