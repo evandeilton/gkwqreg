@@ -1,4 +1,4 @@
-# gkwqreg
+# gkwqreg <img src="man/figures/logo.png" align="right" height="139" alt="gkwqreg logo" />
 
 <!-- badges: start -->
 [![R-CMD-check](https://github.com/evandeilton/gkwqreg/actions/workflows/R-CMD-check.yaml/badge.svg)](https://github.com/evandeilton/gkwqreg/actions/workflows/R-CMD-check.yaml)
