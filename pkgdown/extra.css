@@ -1,124 +1,141 @@
 /*
  * gkwqreg pkgdown — refinamentos UX
- * Mesma tipografia do gkwreg (Ubuntu), paleta esverdeada.
+ * Mesma tipografia do gkwreg (Ubuntu). A paleta sai do logo do pacote:
+ * os stops do gradiente da densidade, a cauda apagada e a borda do hexagono.
  */
 
 :root {
-  --gkwq-green:        #2F6B4F;
-  --gkwq-green-dark:   #16382A;
-  --gkwq-green-mid:    #5C8A74;
-  --gkwq-green-pale:   #EAF3ED;
-  --gkwq-green-hair:   rgba(47, 107, 79, .18);
+  --gkwq-ink:     #0c0a1d;              /* fundo do hexagono */
+  --gkwq-deep:    #4c1d95;              /* 1o stop do gradiente */
+  --gkwq-violet:  #7e22ce;              /* 2o stop */
+  --gkwq-fuchsia: #a21caf;              /* 3o stop */
+  --gkwq-mauve:   #544b85;              /* a cauda 1-tau apagada */
+  --gkwq-amber:   #fbbf24;              /* borda do hexagono e o pino */
+  --gkwq-pale:    #f4effb;              /* derivado, so para fundos */
+  --gkwq-hair:    rgba(76, 29, 149, .18);
 }
 
-/* ----- Tipografia e ritmo vertical ----- */
-.main-content {
+/* ----- Tipografia e ritmo vertical ----- *
+ * O seletor e `main`, nao `.main-content`: pkgdown 2.x renderiza o corpo em
+ * <main id="main" class="col-md-9"> e a classe .main-content nao existe no
+ * HTML gerado. Com ela, todo este bloco ficava inerte.
+ */
+main {
   line-height: 1.7;
   max-width: 75ch;
 }
 
 /* Títulos de seção sem caixa alta (override do tema) */
-.main-content h1,
-.main-content h2,
-.main-content h3,
-.main-content h4,
+main h1,
+main h2,
+main h3,
+main h4,
 .page-header h1,
 #toc .nav-link,
 nav[aria-label="Table of contents"] .nav-link {
   text-transform: none;
 }
 
-.main-content h1,
-.main-content h2,
-.main-content h3,
-.main-content h4 {
+main h1,
+main h2,
+main h3,
+main h4 {
   letter-spacing: 0.02em;
   margin-top: 1.5em;
   margin-bottom: 0.6em;
   font-weight: 600;
 }
 
-.main-content h1 { font-size: 1.95rem; }
-.main-content h2 {
+main h1 { font-size: 1.95rem; }
+main h2 {
   font-size: 1.5rem;
-  border-bottom: 1px solid var(--gkwq-green-hair);
+  border-bottom: 1px solid var(--gkwq-hair);
   padding-bottom: .25em;
 }
-.main-content h3 { font-size: 1.2rem; }
+main h3 { font-size: 1.2rem; }
 
-.main-content h1,
-.main-content h2 { color: var(--gkwq-green-dark); }
+main h1,
+main h2 { color: var(--gkwq-deep); }
 
-.main-content p {
+main p {
   margin-bottom: 1em;
 }
 
-.main-content pre {
+main pre {
   border-radius: 6px;
   padding: 1rem 1.25rem;
   line-height: 1.5;
-  border-left: 3px solid var(--gkwq-green-mid);
+  border-left: 3px solid var(--gkwq-mauve);
 }
 
-.main-content code {
+main code {
   font-size: 0.9em;
   padding: 0.2em 0.4em;
   border-radius: 4px;
 }
 
-.main-content p > code,
-.main-content li > code,
-.main-content td > code {
-  background-color: var(--gkwq-green-pale);
+main p > code,
+main li > code,
+main td > code {
+  background-color: var(--gkwq-pale);
 }
 
 /* ----- Tabelas legíveis ----- */
-.main-content table {
+main table {
   font-size: 0.95rem;
 }
 
-.main-content thead th {
+main thead th {
   font-weight: 600;
   letter-spacing: 0.02em;
-  border-bottom: 2px solid var(--gkwq-green-hair);
+  border-bottom: 2px solid var(--gkwq-hair);
 }
 
 /* ----- Links e foco (acessibilidade) ----- */
-.main-content a {
+main a {
   text-underline-offset: 2px;
 }
 
-.main-content a:focus-visible,
+main a:focus-visible,
 .navbar a:focus-visible,
 footer a:focus-visible {
-  outline: 2px solid var(--gkwq-green);
+  outline: 2px solid var(--gkwq-violet);
   outline-offset: 2px;
 }
 
-/* ----- Navbar elegante, levemente esverdeada ----- */
+/* ----- Navbar: o proprio hexagono ----- *
+ * Campo escuro com moldura ambar, que e como o ambar aparece no logo. Em
+ * fundo claro ele daria 1.67:1 e seria inutilizavel; sobre #0c0a1d da 11.7:1.
+ * O logo escuro tambem para de flutuar sobre uma faixa clara.
+ */
 .navbar {
   font-size: 0.95rem;
   letter-spacing: 0.01em;
 }
 
-.navbar.bg-light {
-  background-color: var(--gkwq-green-pale) !important;
-  border-bottom: 1px solid var(--gkwq-green-hair);
+.navbar.bg-dark {
+  background-color: var(--gkwq-ink) !important;
+  border-bottom: 2px solid var(--gkwq-amber);
 }
 
 .navbar-brand {
   font-weight: 600;
-  color: var(--gkwq-green-dark);
+  color: #faf5ff;
 }
 
 .navbar .nav-link:hover,
 .navbar .nav-link:focus {
-  color: var(--gkwq-green) !important;
+  color: var(--gkwq-amber) !important;
 }
 
 .navbar .nav-link.active {
-  color: var(--gkwq-green-dark) !important;
+  color: var(--gkwq-amber) !important;
   font-weight: 600;
+}
+
+/* O foco sobre a navbar escura precisa do ambar, nao do roxo. */
+.navbar a:focus-visible {
+  outline-color: var(--gkwq-amber) !important;
 }
 
 /* ----- Footer discreto ----- */
@@ -126,7 +143,7 @@ footer {
   font-size: 0.9rem;
   margin-top: 3rem;
   padding-top: 1.5rem;
-  border-top: 1px solid var(--gkwq-green-hair);
+  border-top: 1px solid var(--gkwq-hair);
 }
 
 /* ----- Referência: lista de funções ----- */
@@ -136,7 +153,7 @@ footer {
 }
 
 .ref-list .ref-name a {
-  color: var(--gkwq-green-dark);
+  color: var(--gkwq-deep);
 }
 
 .ref-list .ref-desc {
@@ -147,5 +164,5 @@ footer {
 /* ----- Cabeçalho de seção do índice de referência ----- */
 .section-title,
 .template-reference-index h2 {
-  color: var(--gkwq-green-dark);
+  color: var(--gkwq-deep);
 }

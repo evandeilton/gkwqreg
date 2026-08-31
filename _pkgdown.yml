@@ -1,4 +1,12 @@
-# gkwqreg — pkgdown: tema claro esverdeado, fonte Ubuntu (mesma família do gkwreg)
+# gkwqreg — pkgdown: corpo claro, navbar escura, paleta tirada do logo.
+#
+# As cores nao sao escolhidas de novo aqui: sao os proprios stops do gradiente
+# do hexagono (man/figures/logo.png). Violeta #4c1d95 -> roxo #7e22ce ->
+# fucsia #a21caf sao o inicio, o meio e o terco da densidade; #544b85 e a
+# cauda 1-tau apagada; #fbbf24 e a borda do hexagono e o pino em Q(tau).
+#
+# O ambar so aparece sobre a navbar escura. Em fundo claro ele da 1.67:1, o
+# que reprova ate para componente de UI (3:1); sobre #0c0a1d da 11.7:1.
 
 url: https://evandeilton.github.io/gkwqreg/
 
@@ -13,12 +21,12 @@ template:
     base_font: {google: "Ubuntu"}
     heading_font: {google: "Ubuntu"}
     code_font: {google: "Ubuntu Mono"}
-    primary: "#2F6B4F"
-    secondary: "#5C8A74"
-    success: "#2F6B4F"
-    link-color: "#256048"
-    link-hover-color: "#16382A"
-    code-color: "#1F5F45"
+    primary: "#7e22ce"          # 2o stop do gradiente   — 7.0:1 no branco
+    secondary: "#544b85"        # a cauda 1-tau apagada  — 7.7:1
+    success: "#4c1d95"          # 1o stop do gradiente   — 11.0:1
+    link-color: "#7e22ce"
+    link-hover-color: "#4c1d95"
+    code-color: "#a21caf"       # 3o stop do gradiente   — 6.3:1
 
 navbar:
   structure:
@@ -29,8 +37,8 @@ navbar:
       icon: fab fa-github fa-lg
       href: https://github.com/evandeilton/gkwqreg
       aria-label: GitHub
-  bg: light
-  type: light
+  bg: dark
+  type: dark
 
 footer:
   structure:
