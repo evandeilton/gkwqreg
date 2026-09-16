@@ -248,6 +248,12 @@ mutually non-nested and require Vuong tests.</p>
 <span><span class="fu"><a href="https://rdrr.io/r/stats/anova.html" class="external-link">anova</a></span><span class="op">(</span><span class="fu"><a href="../reference/gkwqreg.html">gkwqreg</a></span><span class="op">(</span><span class="va">y</span> <span class="op">~</span> <span class="va">x</span>, data <span class="op">=</span> <span class="va">d</span>, tau <span class="op">=</span> <span class="fl">.5</span>, family <span class="op">=</span> <span class="st">"kw"</span><span class="op">)</span>,</span>
 <span>      <span class="fu"><a href="../reference/gkwqreg.html">gkwqreg</a></span><span class="op">(</span><span class="va">y</span> <span class="op">~</span> <span class="va">x</span>, data <span class="op">=</span> <span class="va">d</span>, tau <span class="op">=</span> <span class="fl">.5</span>, family <span class="op">=</span> <span class="st">"ekw"</span><span class="op">)</span>,</span>
 <span>      <span class="fu"><a href="../reference/gkwqreg.html">gkwqreg</a></span><span class="op">(</span><span class="va">y</span> <span class="op">~</span> <span class="va">x</span>, data <span class="op">=</span> <span class="va">d</span>, tau <span class="op">=</span> <span class="fl">.5</span>, family <span class="op">=</span> <span class="st">"kkw"</span><span class="op">)</span><span class="op">)</span></span>
+<span><span class="co">#&gt; Warning in sqrt(d): NaNs produced</span></span>
+<span><span class="co">#&gt; Warning: the information matrix is not positive definite, so 1 standard</span></span>
+<span><span class="co">#&gt; error(s) are unavailable. This is the signature of a parameter drifting along a</span></span>
+<span><span class="co">#&gt; flat ridge; a smaller sub-family usually fixes it.</span></span>
+<span><span class="co">#&gt; Warning: the optimizer did not report convergence (code 1). Treat the estimates</span></span>
+<span><span class="co">#&gt; as provisional.</span></span>
 <span><span class="co">#&gt; Likelihood-ratio test for Generalized Kumaraswamy quantile regression</span></span>
 <span><span class="co">#&gt; tau = 0.5, anchor = beta</span></span>
 <span><span class="co">#&gt;      Df logLik     AIC  Chisq Chi Df Pr(&gt;Chisq)</span></span>

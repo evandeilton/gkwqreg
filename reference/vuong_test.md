@@ -91,6 +91,18 @@ let
 \$\$m_i = \ell\_{1i}(\hat\theta_1) - \ell\_{2i}(\hat\theta_2), \qquad i
 = 1, \ldots, n.\$\$
 
+Here \\n\\ is the number of observations, `object$nobs`. If the fits
+carry prior weights, each \\\ell\_{ki}\\ already includes its own weight
+(as in
+[`gkwqreg()`](https://evandeilton.github.io/gkwqreg/reference/gkwqreg.md)),
+but \\n\\ is not itself reweighted, so the sample mean and variance
+below are the ordinary (unweighted) mean and variance of those
+already-weighted terms. That is exact whenever the weights are constant,
+the unweighted case included, because the common factor cancels between
+the numerator and \\s\\; it is a reasonable approximation, not an exact
+weighted extension of Vuong's test, when the weights vary across
+observations.
+
 With `correction = TRUE` these differences are shifted by the
 per-observation share of the dimension penalty,
 
@@ -154,6 +166,15 @@ positive value favours model 1, and the test is a formal significance
 statement about a BIC comparison rather than an informal reading of one.
 When \\p_1 = p_2\\ the correction term vanishes identically and the two
 settings of `correction` agree to the last digit.
+
+The \\n\\ here is the same `object$nobs` used throughout this page, not
+`object$nobs_eff` (the sum of the prior weights) that a single fit's own
+[`BIC()`](https://rdrr.io/r/stats/AIC.html) and the `BIC` column of
+[`compare_families()`](https://evandeilton.github.io/gkwqreg/reference/compare_families.md)
+are built on. The two coincide when weights are constant, which is also
+when the identity above matches `object$bic` exactly; under weights that
+vary across observations the two BICs diverge, for the reason given in
+*The statistic*.
 
 ## When this test does not apply
 

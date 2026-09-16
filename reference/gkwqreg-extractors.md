@@ -266,7 +266,7 @@ gkwq_parts("kw")                    # the part contract this fit obeys
 #> [1] "mu"    "alpha"
 formula(fit)
 #> y ~ x1 + x2 | x1
-#> <environment: 0x55ad449086a8>
+#> <environment: 0x5589ddf95b00>
 
 ## -- fit statistics, all at this one quantile level ----------------------
 c(logLik = as.numeric(logLik(fit)), df = attr(logLik(fit), "df"),

@@ -37,8 +37,8 @@ compare_families(
   Anything valid for
   [`gkwqreg()`](https://evandeilton.github.io/gkwqreg/reference/gkwqreg.md)
   may be given, so a single `compare_families(fit, tau = 0.9)` refits
-  every family at that level. The `family` argument itself is set per
-  row and cannot be overridden here.
+  every family at that level. `family` is set per row from the
+  `families` argument; passing `family` here is an error.
 
 ## Value
 

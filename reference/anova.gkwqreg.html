@@ -110,7 +110,11 @@ first row.</p></dd>
 
 <dt><code>Pr(&gt;Chisq)</code></dt>
 <dd><p>the upper-tail chi-squared probability; <code>NA</code> in the
-first row and wherever <code>Chi Df</code> is not positive.</p></dd>
+first row, wherever <code>Chi Df</code> is not positive (see <em>What this method
+refuses, and why</em>), wherever the two families being compared are not
+nested (see <em>The families are genuinely nested</em>), and wherever the
+log-likelihood falls despite an increase in <code>Df</code>, which signals a fit
+that has not converged rather than evidence about the data.</p></dd>
 
 
 </dl><p>The <code><a href="https://rdrr.io/r/base/print.html" class="external-link">print()</a></code> method formats the table through <code><a href="https://rdrr.io/r/stats/printCoefmat.html" class="external-link">stats::printCoefmat()</a></code> and
@@ -214,8 +218,11 @@ parameters are unsaturated (see <code><a href="gkwqreg.html">gkwqreg()</a></code
 nest; AIC and BIC are also legitimate.</p>
 <p>A third case is warned about rather than refused. If two fits of <em>equal</em>
 dimension reach the test by some other route – same family, same anchor,
-same level, but different covariates of the same count – a warning is issued
-and the corresponding <code>Chisq</code> and <code>Pr(&gt;Chisq)</code> entries are <code>NA</code>.</p>
+same level, but different covariates of the same count – a warning is
+issued and the corresponding <code>Pr(&gt;Chisq)</code> entry is <code>NA</code>. <code>Chisq</code> itself is
+still reported: with zero degrees of freedom there is no p-value to
+compute, but the raw log-likelihood difference remains visible for
+inspection.</p>
     </div>
     <div class="section level2">
     <h2 id="see-also">See also<a class="anchor" aria-label="anchor" href="#see-also"></a></h2>

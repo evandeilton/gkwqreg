@@ -131,6 +131,15 @@ that one model is nearer, never that it is right.</p>
 observation \(i\) under model \(k\), stored in <code>object$loglik_i</code>, and let</p>
 <p>$$m_i = \ell_{1i}(\hat\theta_1) - \ell_{2i}(\hat\theta_2), \qquad
       i = 1, \ldots, n.$$</p>
+<p>Here \(n\) is the number of observations, <code>object$nobs</code>. If the fits
+carry prior weights, each \(\ell_{ki}\) already includes its own weight
+(as in <code><a href="gkwqreg.html">gkwqreg()</a></code>), but \(n\) is not itself reweighted, so the sample
+mean and variance below are the ordinary (unweighted) mean and variance of
+those already-weighted terms. That is exact whenever the weights are
+constant, the unweighted case included, because the common factor cancels
+between the numerator and \(s\); it is a reasonable approximation, not an
+exact weighted extension of Vuong's test, when the weights vary across
+observations.</p>
 <p>With <code>correction = TRUE</code> these differences are shifted by the per-observation
 share of the dimension penalty,</p>
 <p>$$\tilde m_i = m_i - \frac{(p_1 - p_2)\log n}{2n},$$</p>
@@ -183,6 +192,12 @@ model 1, and the test is a formal significance statement about a BIC
 comparison rather than an informal reading of one. When \(p_1 = p_2\) the
 correction term vanishes identically and the two settings of <code>correction</code>
 agree to the last digit.</p>
+<p>The \(n\) here is the same <code>object$nobs</code> used throughout this page, not
+<code>object$nobs_eff</code> (the sum of the prior weights) that a single fit's own
+<code><a href="https://rdrr.io/r/stats/AIC.html" class="external-link">BIC()</a></code> and the <code>BIC</code> column of <code><a href="compare_families.html">compare_families()</a></code> are built on. The two
+coincide when weights are constant, which is also when the identity above
+matches <code>object$bic</code> exactly; under weights that vary across observations
+the two BICs diverge, for the reason given in <em>The statistic</em>.</p>
     </div>
     <div class="section level2">
     <h2 id="when-this-test-does-not-apply">When this test does not apply<a class="anchor" aria-label="anchor" href="#when-this-test-does-not-apply"></a></h2>

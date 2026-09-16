@@ -83,8 +83,9 @@ the data at all merely costs time.</p></dd>
 <dt id="arg--">...<a class="anchor" aria-label="anchor" href="#arg--"></a></dt>
 <dd><p>Overrides applied to the stored call before each family is
 refitted. Anything valid for <code><a href="gkwqreg.html">gkwqreg()</a></code> may be given, so a single
-<code>compare_families(fit, tau = 0.9)</code> refits every family at that level. The
-<code>family</code> argument itself is set per row and cannot be overridden here.</p></dd>
+<code>compare_families(fit, tau = 0.9)</code> refits every family at that level.
+<code>family</code> is set per row from the <code>families</code> argument; passing <code>family</code>
+here is an error.</p></dd>
 
 </dl></div>
     <div class="section level2">

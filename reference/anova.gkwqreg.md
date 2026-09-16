@@ -66,8 +66,12 @@ are
 
 - `Pr(>Chisq)`:
 
-  the upper-tail chi-squared probability; `NA` in the first row and
-  wherever `Chi Df` is not positive.
+  the upper-tail chi-squared probability; `NA` in the first row,
+  wherever `Chi Df` is not positive (see *What this method refuses, and
+  why*), wherever the two families being compared are not nested (see
+  *The families are genuinely nested*), and wherever the log-likelihood
+  falls despite an increase in `Df`, which signals a fit that has not
+  converged rather than evidence about the data.
 
 The [`print()`](https://rdrr.io/r/base/print.html) method formats the
 table through
@@ -205,7 +209,10 @@ BIC are also legitimate.
 A third case is warned about rather than refused. If two fits of *equal*
 dimension reach the test by some other route – same family, same anchor,
 same level, but different covariates of the same count – a warning is
-issued and the corresponding `Chisq` and `Pr(>Chisq)` entries are `NA`.
+issued and the corresponding `Pr(>Chisq)` entry is `NA`. `Chisq` itself
+is still reported: with zero degrees of freedom there is no p-value to
+compute, but the raw log-likelihood difference remains visible for
+inspection.
 
 ## See also
 
