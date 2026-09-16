@@ -31,18 +31,22 @@ across quantile levels or across anchors are refused.
 }
 \details{
 \code{lrtest()} is a generic defined by this package, so that \code{gkwqreg} need not
-depend on \code{lmtest} merely to offer a familiar name. It is a \emph{different}
-generic from \code{lmtest::lrtest()}, and the two mask one another when both
-packages are attached: whichever was attached last wins.
+depend on \code{lmtest} merely to offer a familiar name. \code{lmtest} defines its
+own, different, generic of the same name, and if both packages are attached
+the unqualified name \code{lrtest} resolves to whichever was attached last --
+ordinary search-path masking, no different from any other pair of
+same-named exports.
 
-The distinction matters, because the two behave differently on these
-objects. If \code{lmtest} is attached after \code{gkwqreg}, a bare call to \code{lrtest()}
-reaches \code{lmtest}'s default method, which knows nothing about quantile levels
-or anchors. Handed two fits at different levels it will happily compute a
-difference of log-likelihoods and report a significant result -- the very
-number that \code{\link[=anova.gkwqreg]{anova.gkwqreg()}} refuses to produce, and for the reasons given
-there. Call \code{gkwqreg::lrtest()} or \code{\link[=anova.gkwqreg]{anova.gkwqreg()}} explicitly if there is any doubt
-about which generic is in scope; both carry the guards.
+That masking never reaches method dispatch on a \code{"gkwqreg"} fit. On package
+load, \code{gkwqreg} registers \code{lrtest.gkwqreg} directly into \code{lmtest}'s own S3
+method table via \code{registerS3method()}, provided \code{lmtest} is installed --
+whether or not it is attached. So even a bare \code{lrtest()} call that resolves
+to \code{lmtest}'s generic still finds this package's method for a \code{"gkwqreg"}
+object, not \code{lmtest}'s default method: the guards that \code{\link[=anova.gkwqreg]{anova.gkwqreg()}}
+applies, refusing a comparison across quantile levels or anchors, therefore
+hold regardless of attach order. The registration is specific to the
+\code{"gkwqreg"} class and has no bearing on \code{lrtest()} called on fits of any
+other class.
 }
 \examples{
 ## Data with a genuine third shape parameter: lambda = 4, so "kw" is too

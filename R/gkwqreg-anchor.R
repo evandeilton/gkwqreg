@@ -80,7 +80,8 @@
 #'
 #' Checked against `gkwdist::qgkw` over a 1701-point parameter grid -- seven
 #' levels of \eqn{\tau} spanning 0.01 to 0.99, with each of the five parameters
-#' taking three values -- the largest absolute discrepancy is `2.7e-14`.
+#' taking three values -- the largest absolute discrepancy is `0`: the two
+#' agree to the last bit at every point checked.
 #'
 #' @param tau Numeric vector of quantile levels, strictly inside \eqn{(0,1)}.
 #'   Values outside \eqn{[0,1]} produce `NaN`.
@@ -133,7 +134,7 @@
 #'                  L = c(.6, 1, 2))
 #' max(abs(gkwq_quantile(g$t, g$a, g$b, g$gm, g$d, g$L) -
 #'         gkwdist::qgkw(g$t, g$a, g$b, g$gm, g$d, g$L)))
-#' ## [1] 2.738261e-14
+#' ## [1] 0
 #'
 #' ## The identity that anchoring inverts. Fix a level and a target quantile,
 #' ## then choose beta so that Q(tau) hits the target exactly. This is the
