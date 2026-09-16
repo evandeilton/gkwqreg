@@ -19,7 +19,9 @@ rearranging. Passed straight to \code{\link[=check_crossing]{check_crossing()}},
 \value{
 A numeric matrix of rearranged quantiles with the same dimensions and
 dimnames as the input quantile matrix: one row per evaluation observation,
-one column per level, columns named by level. The matrix carries an attribute
+one column per level, columns named by level as plain formatted numbers
+(\code{"0.1"}, the same convention as \code{\link[=check_crossing]{check_crossing()}}'s \code{Q} -- not
+\code{\link[=pinball]{pinball()}}'s \code{"tau=0.1"} form). The matrix carries an attribute
 \code{"crossing"} holding the \code{"gkwq_crossing"} object computed \emph{before}
 rearrangement, so that what was repaired remains recoverable through
 \code{attr(x, "crossing")}.

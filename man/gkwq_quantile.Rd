@@ -70,7 +70,8 @@ routinely.
 
 Checked against \code{gkwdist::qgkw} over a 1701-point parameter grid -- seven
 levels of \eqn{\tau} spanning 0.01 to 0.99, with each of the five parameters
-taking three values -- the largest absolute discrepancy is \code{2.7e-14}.
+taking three values -- the largest absolute discrepancy is \code{0}: the two
+agree to the last bit at every point checked.
 }
 
 \examples{
@@ -104,7 +105,7 @@ g <- expand.grid(t = c(.01, .1, .25, .5, .75, .9, .99), a = c(.5, 1, 2.5),
                  L = c(.6, 1, 2))
 max(abs(gkwq_quantile(g$t, g$a, g$b, g$gm, g$d, g$L) -
         gkwdist::qgkw(g$t, g$a, g$b, g$gm, g$d, g$L)))
-## [1] 2.738261e-14
+## [1] 0
 
 ## The identity that anchoring inverts. Fix a level and a target quantile,
 ## then choose beta so that Q(tau) hits the target exactly. This is the

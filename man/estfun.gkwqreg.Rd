@@ -47,9 +47,10 @@ current session, rather than returning numbers it cannot stand behind.
 \section{What does not work}{
 
 \code{sandwich::vcovHC()} is \strong{not} supported and will error with "cannot match
-dimension of model.matrix and estfun". It needs working residuals and a
-single design matrix whose columns line up one-for-one with the scores. This
-is a multi-part model with one design matrix \emph{per part}, so
+dimension of model.matrix and estfun to obtain working residuals". It needs
+working residuals and a single design matrix whose columns line up
+one-for-one with the scores. This is a multi-part model with one design
+matrix \emph{per part}, so
 \code{model.matrix()} returns the \code{mu} block while \code{estfun()} spans every
 coefficient of every part, and the two cannot be made to line up. There is no
 sensible thing for a heteroskedasticity-consistent correction to do here.

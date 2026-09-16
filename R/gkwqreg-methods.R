@@ -65,7 +65,7 @@
 #' @param level Confidence level stored on the `summary()` object for a caller
 #'   that wants it. The printed table reports estimates, standard errors and
 #'   p-values rather than an interval, so changing `level` does not change what
-#'   `print()` shows; use [confint()] for an interval at a chosen level.
+#'   `print()` shows; use [confint.gkwqreg()] for an interval at a chosen level.
 #' @param vcov_type Which covariance estimator `summary()` should use for its
 #'   standard errors, one of `"expected"`, `"observed"` or `"sandwich"`; see
 #'   [vcov.gkwqreg()]. `NULL`, the default, uses the type recorded in the fit's
@@ -85,7 +85,10 @@
 #'   bare term names, when one part is given; a named list of such vectors when
 #'   several are given.
 #' * `logLik()`: an object of class `"logLik"` with attributes `df`
-#'   (the number of estimated coefficients) and `nobs`.
+#'   (the number of estimated coefficients) and `nobs`. Under prior weights the
+#'   `nobs` attribute holds the effective sample size `sum(w)` -- the same
+#'   adjustment described for the `k` argument's BIC penalty -- so it can
+#'   differ from `nobs(object)`, which always counts rows.
 #' * `nobs()`: a single integer, the number of observations used in the fit.
 #' * `AIC()`, `BIC()`: a single number.
 #' * `family()`: an object of class `"gkwq_family"`, a list with components
@@ -100,7 +103,9 @@
 #'   `evaluate = FALSE`.
 #' * `summary()`: an object of class `"summary.gkwqreg"` carrying the
 #'   coefficient table, the fit statistics, the pinball loss, the pseudo-R1, the
-#'   empirical coverage and the information condition number, with a `print`
+#'   empirical coverage, the information condition number and a
+#'   `parameter_summary` component (a named numeric vector with the mean of
+#'   each column of `fitted(object, type = "parameter")`), with a `print`
 #'   method.
 #'
 #' @seealso [gkwqreg()] for the model, [gkwq_parts()] for the part contract,
@@ -321,9 +326,10 @@ vcov.gkwqreg <- function(object, type = c("expected", "observed", "sandwich"),
 #'
 #' @section What does not work:
 #' `sandwich::vcovHC()` is **not** supported and will error with "cannot match
-#' dimension of model.matrix and estfun". It needs working residuals and a
-#' single design matrix whose columns line up one-for-one with the scores. This
-#' is a multi-part model with one design matrix *per part*, so
+#' dimension of model.matrix and estfun to obtain working residuals". It needs
+#' working residuals and a single design matrix whose columns line up
+#' one-for-one with the scores. This is a multi-part model with one design
+#' matrix *per part*, so
 #' `model.matrix()` returns the `mu` block while `estfun()` spans every
 #' coefficient of every part, and the two cannot be made to line up. There is no
 #' sensible thing for a heteroskedasticity-consistent correction to do here.
@@ -395,8 +401,11 @@ estfun.gkwqreg <- function(x, ...) {
 #' The value is
 #' \deqn{\widehat{\mathrm{bread}} \;=\; n \, \hat{H}^{-1}
 #'   \;=\; \left(\frac{1}{n}\hat{H}\right)^{-1},}
-#' the inverse of the *average* observed information, which is the quantity that
-#' converges to a fixed matrix as \eqn{n} grows. That normalization is what lets
+#' where \eqn{\hat{H}} is the observed information matrix at the fitted
+#' coefficients -- see [vcov.gkwqreg()] for its exact definition and how it is
+#' computed. The expression above is the inverse of the *average* observed
+#' information, which is the quantity that converges to a fixed matrix as
+#' \eqn{n} grows. That normalization is what lets
 #' \pkg{sandwich} assemble
 #' \eqn{\widehat{\mathrm{bread}} \, \widehat{\mathrm{meat}} \,
 #' \widehat{\mathrm{bread}} / n} and recover the same estimator as
@@ -925,9 +934,16 @@ print.summary.gkwqreg <- function(x, digits = max(3L, getOption("digits") - 3L),
   for (p in x$parts) {
     idx <- which(x$part == p)
     if (!length(idx)) next
-    lab <- if (p == "mu") {
+    lab <- if (p == "mu" && identical(x$link[[p]], "logit")) {
       sprintf("\nConditional %s-quantile (link %s) -- coefficients are effects on the LOG QUANTILE ODDS log(mu/(1-mu)):\n",
               format(x$tau), x$link[[p]])
+    } else if (p == "mu") {
+      ## Only the logit link makes "log-odds" a true description of the
+      ## coefficients. For any other link (probit, cauchy, cloglog, ...) that
+      ## claim is simply false, so the label must name the actual link instead
+      ## of asserting a log-odds interpretation that does not hold.
+      sprintf("\nConditional %s-quantile (link %s) -- coefficients are effects on g(quantile) for link g = %s:\n",
+              format(x$tau), x$link[[p]], x$link[[p]])
     } else {
       sprintf("\n%s (link %s):\n", p, x$link[[p]])
     }
@@ -1015,19 +1031,30 @@ print.gkwqregs <- function(x, ...) {
 #' @param newdata Used by `predict()` only: an optional data frame in which to
 #'   evaluate every fit, with the same requirements as
 #'   [predict.gkwqreg()]. `NULL`, the default, uses the estimation data.
-#' @param ... Passed on to the corresponding method for each individual fit.
+#' @param ... Passed on to the corresponding method for each individual fit,
+#'   except for `logLik()`, which always errors and never touches `...`; see
+#'   Details.
 #'
 #' @return
 #' * `coef()`: a numeric matrix with one row per coefficient and one column per
 #'   quantile level, the columns named by level.
 #' * `fitted()`: a numeric matrix with one row per observation and one column
 #'   per level, holding each fit's conditional quantiles.
+#' * `logLik()`: never returns; it raises an error explaining why.
 #' * `summary()`: a list of `"summary.gkwqreg"` objects, one per level.
-#' * `predict()`: a numeric matrix with one row per prediction and one column
-#'   per level, from each fit in turn.
+#' * `predict()`: runs `predict()` on each fit and binds the results into a
+#'   numeric matrix, one row per prediction and one column per level (named
+#'   after the level, e.g. `"0.25"`) -- but **only when every level's result is
+#'   a plain, dim-less numeric vector of the same length** (true for the
+#'   default `type` with `tau` left `NULL`, for `type = "mu"`/`"mean"`/
+#'   `"variance"`, and for `"density"`/`"probability"` under the default
+#'   `elementwise = TRUE`). Otherwise it returns a plain list instead, one
+#'   element per level holding whatever [predict.gkwqreg()] returns for that
+#'   call, named by `object$fits`'s own `"tau=<level>"` convention (e.g.
+#'   `"tau=0.25"`) -- note this differs from the matrix's plain `"<level>"`
+#'   column names.
 #' * `residuals()`: a numeric matrix with one row per observation and one column
 #'   per level.
-#' * `logLik()`: never returns; it raises an error explaining why.
 #'
 #' @seealso [gkwqreg()], [quantile_process()] for the quantile process on a
 #'   grid, [check_crossing()] for crossing diagnostics,
@@ -1062,7 +1089,10 @@ print.gkwqregs <- function(x, ...) {
 #' mean(Q[, 1] <= Q[, 2] & Q[, 2] <= Q[, 3])   # 1: no crossing in this sample
 #' @export
 coef.gkwqregs <- function(object, ...) {
-  cf <- sapply(object$fits, function(f) f$coefficients)
+  ## Dispatch through coef() rather than reading $coefficients directly, so
+  ## that `...` (e.g. part = "mu") reaches coef.gkwqreg() for each individual
+  ## fit, exactly as residuals.gkwqregs() and predict.gkwqregs() already do.
+  cf <- sapply(object$fits, coef, ...)
   colnames(cf) <- format(object$taus, trim = TRUE)
   cf
 }
@@ -1070,7 +1100,7 @@ coef.gkwqregs <- function(object, ...) {
 #' @rdname gkwqregs-methods
 #' @export
 fitted.gkwqregs <- function(object, ...) {
-  out <- sapply(object$fits, function(f) f$fitted.values)
+  out <- sapply(object$fits, fitted, ...)
   colnames(out) <- format(object$taus, trim = TRUE)
   out
 }

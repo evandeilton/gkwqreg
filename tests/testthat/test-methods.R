@@ -373,3 +373,52 @@ test_that("vuong_test is invariant to a constant reweighting", {
   expect_equal(vw$statistic, v$statistic, tolerance = 1e-6)
   expect_equal(vw$p.value, v$p.value, tolerance = 1e-6)
 })
+
+test_that("print.summary.gkwqreg only claims log-odds under the logit link", {
+  ## The "LOG QUANTILE ODDS log(mu/(1-mu))" label printed unconditionally for
+  ## the mu part, even under probit/cauchy/cloglog links, where the mu
+  ## coefficients are not log-odds of anything. The label must be conditional
+  ## on the link actually being logit.
+  d <- sim_kw(n = 150)
+
+  f_logit  <- gkwqreg(y ~ x, data = d, tau = 0.5, family = "kw")
+  f_probit <- gkwqreg(y ~ x, data = d, tau = 0.5, family = "kw",
+                      link = c(mu = "probit"))
+
+  out_logit  <- testthat::capture_output(print(summary(f_logit)))
+  out_probit <- testthat::capture_output(print(summary(f_probit)))
+
+  ## Happy case must not regress: the logit fit still gets the log-odds claim.
+  expect_true(grepl("LOG QUANTILE ODDS", out_logit, fixed = TRUE))
+  ## A non-logit link must not carry the same (false) claim...
+  expect_false(grepl("LOG QUANTILE ODDS", out_probit, fixed = TRUE))
+  ## ...but the label still names the real link, correctly, rather than
+  ## saying nothing at all.
+  expect_true(grepl("link g = probit", out_probit, fixed = TRUE))
+})
+
+test_that("coef.gkwqregs() and fitted.gkwqregs() forward `...` to each fit", {
+  ## Both used to read $coefficients / $fitted.values off each fit directly,
+  ## bypassing coef()/fitted() entirely, so `...` (e.g. part = "mu" or
+  ## type = "mean") was silently ignored: coef(fits, part = "mu") returned
+  ## exactly the same matrix as coef(fits). Dispatching through coef()/
+  ## fitted() -- the pattern residuals.gkwqregs() already used -- lets `...`
+  ## reach coef.gkwqreg()/fitted.gkwqreg() for each fit, as documented.
+  d <- sim_kw(n = 150)
+  fits <- gkwqreg(y ~ x, data = d, tau = c(0.25, 0.5, 0.75), family = "kw")
+
+  cf_all <- coef(fits)
+  cf_mu  <- coef(fits, part = "mu")
+  expect_false(identical(dim(cf_all), dim(cf_mu)))
+  ## The mu-only column must match what coef.gkwqreg(part = "mu") gives
+  ## directly on the corresponding individual fit (tau = 0.5 is the 2nd level,
+  ## levels being stored sorted).
+  expect_equal(unname(cf_mu[, "0.50"]),
+               unname(coef(fits$fits[[2]], part = "mu")))
+
+  fit_quantile <- fitted(fits)
+  fit_mean     <- fitted(fits, type = "mean")
+  expect_false(isTRUE(all.equal(fit_quantile, fit_mean)))
+  expect_equal(unname(fit_mean[, "0.50"]),
+               unname(fitted(fits$fits[[2]], type = "mean")))
+})

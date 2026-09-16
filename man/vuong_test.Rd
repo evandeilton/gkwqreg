@@ -157,6 +157,18 @@ The two fits must also share the quantile level and the number of
 observations, both of which are checked. Fits at different levels answer
 different questions and their likelihoods are not commensurable; fits on
 different samples give differences \eqn{m_i} that are not paired.
+
+Two further situations stop with an error rather than returning a value.
+Comparing a fit with itself -- the same family, the same anchor, and
+identical covariates in every part -- is refused, since there would then be
+no second model left for the test to weigh against the first; merely
+sharing a family and anchor does not trigger this, and two fits that share
+both but differ in their covariates remain two different models and are
+compared normally. Separately, if the per-observation differences
+\eqn{m_i} (\eqn{\tilde m_i} under \code{correction = TRUE}) happen to be
+numerically constant across every observation, their sample variance
+\eqn{s^2} is zero and \eqn{Z} is \code{0/0}: an undefined statistic, not a tie,
+so the function stops rather than report one.
 }
 
 \examples{
@@ -203,6 +215,10 @@ vuong_test(s_beta, s_alpha)
 ## "beta" restricts them away entirely, so neither contains the other.
 f_bet <- gkwqreg(y ~ x, data = d, tau = 0.9, family = "beta")
 vuong_test(f_beta, f_bet)
+##   z = 6.898, p-value = 5.277e-12
+##   model 1 is favoured
+## "kw" is the family the data were actually generated from, so it is no
+## surprise that it is favoured decisively over the misspecified "beta" fit.
 
 }
 \references{

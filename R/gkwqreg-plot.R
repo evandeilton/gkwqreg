@@ -24,10 +24,11 @@
 #' @param ... Passed to the underlying [graphics::plot()] calls in panels 1, 2, 4,
 #'   5 and 6. Panel 3 is drawn by [stats::qqnorm()] and does not receive them.
 #'   Note that `main`, `xlab`, `ylab`, `pch`, `cex` and `col` are already supplied
-#'   by each panel, so passing them again will raise a duplicated-argument error.
+#'   by each panel, so passing them again will raise a duplicated-argument error;
+#'   panel 6 additionally fixes `type` to `"h"` for the same reason.
 #'
 #' @details
-#' Panels 1 to 3 and 6 are computed from the randomized-quantile residuals of Dunn
+#' Panels 1 to 3 are computed from the randomized-quantile residuals of Dunn
 #' and Smyth (1996), `residuals(x, type = "quantile")`, which for this family
 #' require no randomization because the distribution is continuous:
 #'
@@ -142,7 +143,8 @@
 #' looked up in the data. The threshold is a convention with no distributional
 #' basis: use it to rank observations, not to test them. This is the one panel
 #' that needs the estimated covariance matrix, so it is unavailable for a fit
-#' obtained with `gkwq_control(hessian = FALSE)`.
+#' obtained with `gkwq_control(hessian = FALSE)`: an empty panel with an
+#' explanatory message is drawn in its place.
 #'
 #' @return `x`, invisibly. Called for the plots it draws.
 #'
@@ -293,8 +295,8 @@ plot.gkwqreg <- function(x, which = 1:6, nsim = 100L, nbins = 10L, ...) {
       yl <- range(c(m - band, m + band, 0), na.rm = TRUE)
       plot(ctr, m, ylim = yl, xlab = sprintf("fitted %s-quantile", format(tau)),
            ylab = expression(paste("mean of  ", 1, "{y" <= "Q} - ", tau)),
-           main = "Calibration by fitted value", pch = 19, col = "steelblue4",
-           ...)
+           main = "Calibration by fitted value", pch = 19, cex = 0.5,
+           col = "steelblue4", ...)
       graphics::arrows(ctr, m - band, ctr, m + band, angle = 90, code = 3,
                        length = 0.03, col = "steelblue")
       graphics::abline(h = 0, col = "firebrick", lwd = 2)
@@ -307,14 +309,24 @@ plot.gkwqreg <- function(x, which = 1:6, nsim = 100L, nbins = 10L, ...) {
       S <- estfun.gkwqreg(x)
       rowSums((S %*% V) * S) / x$npar
     }, error = function(e) rep(NA_real_, x$nobs))
-    plot(seq_along(D), D, type = "h", xlab = "observation",
-         ylab = "generalized Cook distance", main = "Influence", col = "grey40",
-         ...)
-    if (all(is.finite(D))) {
-      big <- which(D > 4 / x$nobs)
-      if (length(big)) {
-        graphics::points(big, D[big], pch = 19, cex = 0.6, col = "firebrick")
-        graphics::text(big, D[big], labels = big, pos = 3, cex = 0.6)
+    if (!any(is.finite(D))) {
+      ## vcov(x) failed -- typically a fit from gkwq_control(hessian = FALSE)
+      ## -- so D is entirely NA. plot(..., type = "h") on all-NA data errors
+      ## with "need finite 'ylim' values"; draw an empty panel with an
+      ## explanation instead of letting that propagate.
+      plot(0, 0, type = "n", axes = FALSE, xlab = "", ylab = "",
+           main = "Influence")
+      graphics::text(0, 0, "not available: refit with\ngkwq_control(hessian = TRUE)")
+    } else {
+      plot(seq_along(D), D, type = "h", xlab = "observation",
+           ylab = "generalized Cook distance", main = "Influence",
+           pch = 19, cex = 0.5, col = "grey40", ...)
+      if (all(is.finite(D))) {
+        big <- which(D > 4 / x$nobs)
+        if (length(big)) {
+          graphics::points(big, D[big], pch = 19, cex = 0.6, col = "firebrick")
+          graphics::text(big, D[big], labels = big, pos = 3, cex = 0.6)
+        }
       }
     }
   }

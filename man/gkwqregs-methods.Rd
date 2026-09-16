@@ -26,7 +26,9 @@
 \item{object}{A \code{"gkwqregs"} container, as returned by \code{\link[=gkwqreg]{gkwqreg()}} with a
 vector-valued \code{tau}.}
 
-\item{...}{Passed on to the corresponding method for each individual fit.}
+\item{...}{Passed on to the corresponding method for each individual fit,
+except for \code{logLik()}, which always errors and never touches \code{...}; see
+Details.}
 
 \item{newdata}{Used by \code{predict()} only: an optional data frame in which to
 evaluate every fit, with the same requirements as
@@ -38,12 +40,21 @@ evaluate every fit, with the same requirements as
 quantile level, the columns named by level.
 \item \code{fitted()}: a numeric matrix with one row per observation and one column
 per level, holding each fit's conditional quantiles.
+\item \code{logLik()}: never returns; it raises an error explaining why.
 \item \code{summary()}: a list of \code{"summary.gkwqreg"} objects, one per level.
-\item \code{predict()}: a numeric matrix with one row per prediction and one column
-per level, from each fit in turn.
+\item \code{predict()}: runs \code{predict()} on each fit and binds the results into a
+numeric matrix, one row per prediction and one column per level (named
+after the level, e.g. \code{"0.25"}) -- but \strong{only when every level's result is
+a plain, dim-less numeric vector of the same length} (true for the
+default \code{type} with \code{tau} left \code{NULL}, for \code{type = "mu"}/\code{"mean"}/
+\code{"variance"}, and for \code{"density"}/\code{"probability"} under the default
+\code{elementwise = TRUE}). Otherwise it returns a plain list instead, one
+element per level holding whatever \code{\link[=predict.gkwqreg]{predict.gkwqreg()}} returns for that
+call, named by \code{object$fits}'s own \code{"tau=<level>"} convention (e.g.
+\code{"tau=0.25"}) -- note this differs from the matrix's plain \code{"<level>"}
+column names.
 \item \code{residuals()}: a numeric matrix with one row per observation and one column
 per level.
-\item \code{logLik()}: never returns; it raises an error explaining why.
 }
 }
 \description{

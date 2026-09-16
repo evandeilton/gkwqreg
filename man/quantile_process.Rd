@@ -12,7 +12,9 @@ quantile_process(object, taus = seq(0.05, 0.95, by = 0.05), level = 0.95, ...)
 already been computed and are simply harvested.}
 
 \item{taus}{Increasing grid of quantile levels in \eqn{(0,1)}{(0,1)}, used only
-when \code{object} is a single fit. \strong{Silently ignored when \code{object} is a
+when \code{object} is a single fit, and required to have at least two levels: a
+process is a curve over \code{tau}, and a single level does not define one, so
+fit \code{\link[=gkwqreg]{gkwqreg()}} directly instead. \strong{Silently ignored when \code{object} is a
 \code{"gkwqregs"} container}, whose levels are already fixed by its fits.}
 
 \item{level}{Confidence level for the pointwise bands, \code{0.95} by default.}
@@ -27,7 +29,9 @@ An object of class \code{"gkwq_process"}, a list with components
 \item{\code{taus}}{Numeric vector of the levels, increasing.}
 \item{\code{coef}}{Coefficient matrix, one row per model coefficient and one
 column per level. Rows are named \code{"part:term"} (for example \code{"mu:x"},
-\code{"alpha:(Intercept)"}); columns are named by level.}
+\code{"alpha:(Intercept)"}); columns are named by level as plain formatted
+numbers (\code{"0.1"}, via \code{format(tau, trim = TRUE)} -- not \code{\link[=pinball]{pinball()}}'s
+\code{"tau=0.1"} form).}
 \item{\code{se}}{Standard errors, same shape and dimnames as \code{coef}.}
 \item{\code{lower}, \code{upper}}{Pointwise Wald band limits, \code{coef} plus or minus
 \code{qnorm(1 - (1 - level) / 2)} standard errors.}

@@ -40,12 +40,19 @@
 #'     conditioned, on the log scale, so that extreme observations do not
 #'     collapse onto \eqn{\pm\infty}. This is the default and the right first
 #'     look: a normal quantile-quantile plot of them tests the whole
-#'     specification at once.}
+#'     specification at once. An observation in a tail so extreme that both
+#'     tails of \eqn{F} underflow still yields a non-finite value (`Inf`,
+#'     `-Inf` or `NaN`); unlike [plot.gkwqreg()], which replaces these with
+#'     `NA` before drawing its panels, this function returns them uncleaned,
+#'     so check `is.finite()` before summarising the output.}
 #'   \item{`"cox-snell"`}{A monotone transformation of the same probability
 #'     integral transform, so it carries exactly the same information. Prefer
 #'     `"quantile"` for a normal quantile-quantile plot; prefer `"cox-snell"`
 #'     when an exponential probability plot or a cumulative-hazard plot is
-#'     wanted, as is conventional in survival work.}
+#'     wanted, as is conventional in survival work. It uses only the upper
+#'     tail of \eqn{F} rather than whichever tail is better conditioned, so it
+#'     can return a non-finite value (`Inf`) more readily than `"quantile"`
+#'     for observations near the upper edge of the support.}
 #'   \item{`"pearson"`}{Neither the conditional mean nor the conditional
 #'     standard deviation has a closed form under this reparametrization. Both
 #'     are obtained by Gauss-Legendre quadrature of the quantile function, using
@@ -81,11 +88,15 @@
 #'     below zero, so their \eqn{\tau}-quantile is zero -- their mean is not
 #'     zero, and there is no reason it should be.}
 #'   \item{`"check"`}{The loss the model is fitted to minimise, evaluated
-#'     observation by observation. Its sample mean is exactly the pinball loss
-#'     returned by [pinball()], so plotting it against a covariate decomposes
-#'     that single number and shows where the fit deteriorates. It is
+#'     observation by observation; unlike [pinball()], it does not apply prior
+#'     `weights`. When every observation carries the same weight -- in
+#'     particular whenever `weights` was left at its default in [gkwqreg()] --
+#'     its sample mean is exactly the pinball loss returned by [pinball()], so
+#'     plotting it against a covariate decomposes that single number and shows
+#'     where the fit deteriorates. Under unequal weights the two no longer
+#'     agree, because [pinball()] returns the weighted mean instead. It is
 #'     non-negative and strongly right-skewed; comparing its mean between two
-#'     fits is comparing their pinball losses.}
+#'     equally-weighted fits is comparing their pinball losses.}
 #'   \item{`"tau-sign"`}{The sharpest check the model admits, and the one with
 #'     no analogue in mean regression. If the conditional quantile is correctly
 #'     specified then

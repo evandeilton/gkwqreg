@@ -11,10 +11,11 @@ Description: Fixed-level parametric quantile regression for bounded responses in
     conditional quantile at that level, which is then modelled directly through a
     link function; the remaining parameters may carry their own regressions.
     Estimation is by maximum likelihood via 'TMB' automatic differentiation.
-    Provides Wald, likelihood-ratio and sandwich inference, quantile-specific
-    residuals and diagnostics, marginal effects, the quantile process over a grid
-    of levels, and crossing detection. Generalizes the Kumaraswamy quantile
-    reparametrization of Mitnik and Baek (2013) <doi:10.1007/s00362-011-0417-y>.
+    Provides Wald, likelihood-ratio, profile, bootstrap and sandwich inference,
+    quantile-specific residuals and diagnostics, marginal effects, the quantile
+    process over a grid of levels, and crossing detection. Generalizes the
+    Kumaraswamy quantile reparametrization of Mitnik and Baek (2013)
+    <doi:10.1007/s00362-011-0417-y>.
 License: MIT + file LICENSE
 URL: https://github.com/evandeilton/gkwqreg, https://evandeilton.github.io/gkwqreg/
 BugReports: https://github.com/evandeilton/gkwqreg/issues

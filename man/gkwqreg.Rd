@@ -36,17 +36,21 @@ in \code{formula}. If missing, they are looked up in the environment of
 
 \item{tau}{Quantile level in \verb{(0,1)}. A vector returns a \code{"gkwqregs"}
 container of independent fits, one per level, fitted from the level nearest
-the median outward with warm starts. Mandatory in the sense that it is never
+the median outward with warm starts. Duplicate levels are silently dropped
+and the levels are sorted ascending before fitting (\code{sort(unique(tau))}),
+so the \verb{$taus} component and the order of \verb{$fits} follow that order, not
+the order \code{tau} was supplied in. Mandatory in the sense that it is never
 estimated: the profile likelihood in \code{tau} is exactly flat, so \code{tau} indexes
 the question, not the model.}
 
 \item{family}{One of \code{"kw"}, \code{"ekw"}, \code{"kkw"}, \code{"bkw"}, \code{"gkw"}, \code{"mc"},
-\code{"beta"}. See the table above for the constraints each imposes.}
+\code{"beta"}. See \emph{The seven families}, below, for the constraints each
+imposes.}
 
 \item{anchor}{The parameter eliminated in favour of the conditional quantile,
-or \code{NULL} for the family default. See the section above; this is a modeling
-argument, not an internal detail. \code{\link[=gkwq_anchors]{gkwq_anchors()}} lists what a family
-allows.}
+or \code{NULL} for the family default. See \emph{The anchor is a modeling choice},
+below; this is a modeling argument, not an internal detail.
+\code{\link[=gkwq_anchors]{gkwq_anchors()}} lists what a family allows.}
 
 \item{link}{Link functions, as a single name or a named vector indexed by
 part. The quantile part defaults to \code{"logit"} and must map to \verb{(0,1)}, so it
@@ -77,7 +81,9 @@ of \code{formula}, and the two add.}
 
 \item{na.action}{How to treat missing values in the model frame; defaults to
 \code{\link[stats:na.omit]{stats::na.omit()}}. Responses at exactly 0 or 1 lie outside the support and
-are an error, never silently clamped.}
+are an error, never silently clamped; that is separate from the \code{eps_y}
+guard of \code{\link[=gkwq_control]{gkwq_control()}}, which nudges values that are merely \emph{close} to
+0 or 1 (but not exactly there) a hair inward for numerical safety.}
 
 \item{contrasts}{An optional list of contrasts for factor covariates, as in
 \code{\link[stats:model.matrix]{stats::model.matrix()}}.}
@@ -106,7 +112,11 @@ reads from it.}
 \item{\code{se}, \code{vcov}, \code{hessian}, \code{cond_number}}{standard errors, the inverse
 observed information, the observed information itself, and its exact
 condition number. \code{cond_number} above \code{1e8} is the signature of a weakly
-identified fit.}
+identified fit. All four are attempted only when \code{control$hessian} is
+\code{TRUE} (the default); with \code{control$hessian = FALSE}, or if
+\code{\link[stats:optimHess]{stats::optimHess()}}, \code{solve()} or \code{kappa()} fails, the fit still
+returns -- \code{hessian} and \code{vcov} come back \code{NULL}, and \code{se} and
+\code{cond_number} come back \code{NA}, instead of stopping it.}
 \item{\code{fitted.values}}{the fitted conditional \eqn{\tau}-quantiles
 \eqn{\mu_{\tau i}} -- \strong{quantiles, not means}.}
 \item{\code{linear.predictors}}{a named list of linear predictors, one per part,
@@ -114,11 +124,13 @@ offsets included.}
 \item{\code{parameter_vectors}}{an \code{n} by 5 data frame of the reconstructed
 \code{alpha}, \code{beta}, \code{gamma}, \code{delta}, \code{lambda} per observation, the anchored
 column included.}
-\item{\code{loglik}, \code{loglik_i}, \code{npar}, \code{nobs}, \code{aic}, \code{bic}}{the maximized
-log-likelihood (re-evaluated at the reported coefficients, never taken
-from the optimizer's own record), its per-observation contributions, the
-number of estimated coefficients, the sample size, and the two
-information criteria.}
+\item{\code{loglik}, \code{loglik_i}, \code{npar}, \code{nobs}, \code{nobs_eff}, \code{aic}, \code{bic}}{the
+maximized log-likelihood (re-evaluated at the reported coefficients,
+never taken from the optimizer's own record), its per-observation
+contributions, the number of estimated coefficients, the sample size,
+the weighted effective sample size \code{sum(weights)} (what \code{bic} is
+actually penalised by; equal to \code{nobs} under unit weights, and
+different from it otherwise), and the two information criteria.}
 \item{\code{pinball}}{the in-sample check loss
 \eqn{n^{-1}\sum_i (y_i-\mu_{\tau i})\bigl(\tau-\mathbf{1}(y_i<\mu_{\tau i})\bigr)}{mean_i (y_i - mu_i) (tau - 1(y_i < mu_i))}, the
 criterion a quantile estimate actually targets.}
@@ -130,15 +142,22 @@ full internal family specification.}
 the multi-part formula, per-part terms objects, the factor levels and the
 contrasts recorded at fit time, all used by \code{predict(newdata =)}.}
 \item{\code{weights}, \code{offsets}}{the prior weights and the per-part offsets.}
-\item{\code{convergence}, \code{message}, \code{iterations}}{the optimizer's exit code,
-message and iteration count. A non-zero code triggers a warning at fit
-time and a note in \code{summary()}.}
+\item{\code{convergence}, \code{message}, \code{iterations}}{the optimizer's exit code
+and message, and the iteration count -- but the last of these is only
+ever populated under \code{control$method = "nlminb"}; \code{\link[stats:optim]{stats::optim()}} (any
+other method) reports no \verb{$iterations} component, so \code{iterations} is
+then always \code{NA_integer_}. A non-zero \code{convergence} code triggers a
+warning at fit time and a note in \code{summary()}.}
 \item{\code{control}, \code{start}, \code{obj}}{the control object, the starting values
 actually used, and the TMB object. \code{obj} is what makes
 \code{\link[=estfun.gkwqreg]{estfun.gkwqreg()}} and profile-likelihood intervals possible; it holds
 external pointers, so it is valid only in the session that built it.}
 \item{\code{model}, \code{x}, \code{y}}{present only when the matching argument was \code{TRUE}:
-the model frame, the list of design matrices, and the (clamped) response.}
+the model frame, the list of design matrices, and the response after the
+\code{eps_y} guard of \code{\link[=gkwq_control]{gkwq_control()}} -- values strictly inside \verb{(0,1)} but
+closer than \code{eps_y} to an endpoint are nudged to \verb{[eps_y, 1 - eps_y]};
+values exactly at 0 or 1 never reach this step, because \code{na.action}
+above already turns those into an error.}
 }
 
 For a vector \code{tau}, an object of class \code{"gkwqregs"} with components \code{fits} (a
