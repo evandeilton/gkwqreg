@@ -64,6 +64,16 @@ observation \eqn{i} under model \eqn{k}, stored in \code{object$loglik_i}, and l
 \deqn{m_i = \ell_{1i}(\hat\theta_1) - \ell_{2i}(\hat\theta_2), \qquad
       i = 1, \ldots, n.}
 
+Here \eqn{n} is the number of observations, \code{object$nobs}. If the fits
+carry prior weights, each \eqn{\ell_{ki}} already includes its own weight
+(as in \code{\link[=gkwqreg]{gkwqreg()}}), but \eqn{n} is not itself reweighted, so the sample
+mean and variance below are the ordinary (unweighted) mean and variance of
+those already-weighted terms. That is exact whenever the weights are
+constant, the unweighted case included, because the common factor cancels
+between the numerator and \eqn{s}; it is a reasonable approximation, not an
+exact weighted extension of Vuong's test, when the weights vary across
+observations.
+
 With \code{correction = TRUE} these differences are shifted by the per-observation
 share of the dimension penalty,
 
@@ -125,6 +135,13 @@ model 1, and the test is a formal significance statement about a BIC
 comparison rather than an informal reading of one. When \eqn{p_1 = p_2} the
 correction term vanishes identically and the two settings of \code{correction}
 agree to the last digit.
+
+The \eqn{n} here is the same \code{object$nobs} used throughout this page, not
+\code{object$nobs_eff} (the sum of the prior weights) that a single fit's own
+\code{BIC()} and the \code{BIC} column of \code{\link[=compare_families]{compare_families()}} are built on. The two
+coincide when weights are constant, which is also when the identity above
+matches \code{object$bic} exactly; under weights that vary across observations
+the two BICs diverge, for the reason given in \emph{The statistic}.
 }
 
 \section{When this test does not apply}{

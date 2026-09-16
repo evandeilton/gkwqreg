@@ -29,7 +29,11 @@ in the first row.}
 \item{\verb{Chi Df}}{the difference in \code{Df} against the row above; \code{NA} in the
 first row.}
 \item{\verb{Pr(>Chisq)}}{the upper-tail chi-squared probability; \code{NA} in the
-first row and wherever \verb{Chi Df} is not positive.}
+first row, wherever \verb{Chi Df} is not positive (see \emph{What this method
+refuses, and why}), wherever the two families being compared are not
+nested (see \emph{The families are genuinely nested}), and wherever the
+log-likelihood falls despite an increase in \code{Df}, which signals a fit
+that has not converged rather than evidence about the data.}
 }
 The \code{print()} method formats the table through \code{\link[stats:printCoefmat]{stats::printCoefmat()}} and
 prepends the heading.
@@ -161,8 +165,11 @@ nest; AIC and BIC are also legitimate.
 
 A third case is warned about rather than refused. If two fits of \emph{equal}
 dimension reach the test by some other route -- same family, same anchor,
-same level, but different covariates of the same count -- a warning is issued
-and the corresponding \code{Chisq} and \verb{Pr(>Chisq)} entries are \code{NA}.
+same level, but different covariates of the same count -- a warning is
+issued and the corresponding \verb{Pr(>Chisq)} entry is \code{NA}. \code{Chisq} itself is
+still reported: with zero degrees of freedom there is no p-value to
+compute, but the raw log-likelihood difference remains visible for
+inspection.
 }
 
 \examples{

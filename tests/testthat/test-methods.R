@@ -349,3 +349,27 @@ test_that("a frequency weight counts as the replication it is", {
   expect_equal(f1$nobs_eff, nobs(f1))
   expect_equal(BIC(f1), -2 * f1$loglik + log(n) * f1$npar, tolerance = 1e-8)
 })
+
+test_that("vuong_test is invariant to a constant reweighting", {
+  ## The statistic used sum(weights) to scale sqrt(n) and the correction's
+  ## log(n), while mean()/sd() of the per-observation differences still
+  ## divided by the row count -- two different scales mixed into one Z. A
+  ## constant weight must cancel out of Z exactly, the way it cancels out of
+  ## an ordinary t-statistic; it did not before this fix.
+  set.seed(4); n <- 300; x <- stats::runif(n)
+  d <- data.frame(y = stats::qbeta(stats::runif(n), 2 + x, 3), x = x)
+
+  f1 <- gkwqreg(y ~ x, d, tau = 0.5, family = "kw")
+  f2 <- gkwqreg(y ~ x, d, tau = 0.5, family = "kw", anchor = "alpha")
+  fw1 <- gkwqreg(y ~ x, d, tau = 0.5, family = "kw", weights = rep(3, n))
+  fw2 <- gkwqreg(y ~ x, d, tau = 0.5, family = "kw", anchor = "alpha",
+                weights = rep(3, n))
+
+  v  <- vuong_test(f1, f2)
+  vw <- vuong_test(fw1, fw2)
+  ## tolerance absorbs ordinary optimizer noise between the two independent
+  ## fits; the bug this guards against was a factor of sqrt(3), not a rounding
+  ## error.
+  expect_equal(vw$statistic, v$statistic, tolerance = 1e-6)
+  expect_equal(vw$p.value, v$p.value, tolerance = 1e-6)
+})
