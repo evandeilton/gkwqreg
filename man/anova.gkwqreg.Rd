@@ -164,12 +164,14 @@ parameters are unsaturated (see \code{\link[=gkwqreg]{gkwqreg()}}). The correct 
 nest; AIC and BIC are also legitimate.
 
 A third case is warned about rather than refused. If two fits of \emph{equal}
-dimension reach the test by some other route -- same family, same anchor,
-same level, but different covariates of the same count -- a warning is
-issued and the corresponding \verb{Pr(>Chisq)} entry is \code{NA}. \code{Chisq} itself is
-still reported: with zero degrees of freedom there is no p-value to
-compute, but the raw log-likelihood difference remains visible for
-inspection.
+dimension reach the test by some other route -- typically the same family
+and anchor, at the same level, but with different covariates of the same
+count -- a warning is issued and the corresponding \verb{Pr(>Chisq)} entry is
+\code{NA}. The trigger is the tied \code{Df} itself, not the family: two different,
+non-nested families that happen to land on the same \code{Df} are caught the
+same way. \code{Chisq} itself is still reported: with zero degrees of freedom
+there is no p-value to compute, but the raw log-likelihood difference
+remains visible for inspection.
 }
 
 \examples{

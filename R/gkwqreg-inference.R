@@ -174,12 +174,14 @@
 #' nest; AIC and BIC are also legitimate.
 #'
 #' A third case is warned about rather than refused. If two fits of *equal*
-#' dimension reach the test by some other route -- same family, same anchor,
-#' same level, but different covariates of the same count -- a warning is
-#' issued and the corresponding `Pr(>Chisq)` entry is `NA`. `Chisq` itself is
-#' still reported: with zero degrees of freedom there is no p-value to
-#' compute, but the raw log-likelihood difference remains visible for
-#' inspection.
+#' dimension reach the test by some other route -- typically the same family
+#' and anchor, at the same level, but with different covariates of the same
+#' count -- a warning is issued and the corresponding `Pr(>Chisq)` entry is
+#' `NA`. The trigger is the tied `Df` itself, not the family: two different,
+#' non-nested families that happen to land on the same `Df` are caught the
+#' same way. `Chisq` itself is still reported: with zero degrees of freedom
+#' there is no p-value to compute, but the raw log-likelihood difference
+#' remains visible for inspection.
 #'
 #' @return
 #' A data frame of class `"anova.gkwqreg"`, inheriting from `"anova"` and
@@ -457,6 +459,18 @@ print.anova.gkwqreg <- function(x, ...) {
 #' different questions and their likelihoods are not commensurable; fits on
 #' different samples give differences \eqn{m_i} that are not paired.
 #'
+#' Two further situations stop with an error rather than returning a value.
+#' Comparing a fit with itself -- the same family, the same anchor, and
+#' identical covariates in every part -- is refused, since there would then be
+#' no second model left for the test to weigh against the first; merely
+#' sharing a family and anchor does not trigger this, and two fits that share
+#' both but differ in their covariates remain two different models and are
+#' compared normally. Separately, if the per-observation differences
+#' \eqn{m_i} (\eqn{\tilde m_i} under `correction = TRUE`) happen to be
+#' numerically constant across every observation, their sample variance
+#' \eqn{s^2} is zero and \eqn{Z} is `0/0`: an undefined statistic, not a tie,
+#' so the function stops rather than report one.
+#'
 #' @return
 #' An object of class `"gkwq_vuong"`: a list with components
 #' \describe{
@@ -515,6 +529,10 @@ print.anova.gkwqreg <- function(x, ...) {
 #' ## "beta" restricts them away entirely, so neither contains the other.
 #' f_bet <- gkwqreg(y ~ x, data = d, tau = 0.9, family = "beta")
 #' vuong_test(f_beta, f_bet)
+#' ##   z = 6.898, p-value = 5.277e-12
+#' ##   model 1 is favoured
+#' ## "kw" is the family the data were actually generated from, so it is no
+#' ## surprise that it is favoured decisively over the misspecified "beta" fit.
 #'
 #' @seealso [anova.gkwqreg()] for the nested case; [compare_families()] for a
 #'   sweep over all seven families by AIC, BIC and check loss; [gkwqreg()] for
@@ -604,9 +622,11 @@ print.gkwq_vuong <- function(x, digits = 4, ...) {
 #' answer different questions and can genuinely disagree; the sections below
 #' explain when that happens and which number to act on.
 #'
-#' @param object A fitted `"gkwqreg"` model whose call is reused. Everything is
-#'   held fixed except the family: the same formula, data, quantile level,
-#'   links, weights, offsets and control settings are used for every refit.
+#' @param object A fitted `"gkwqreg"` model whose call is reused. Almost
+#'   everything is held fixed for every refit -- the same formula, data,
+#'   quantile level, links, weights, offsets and control settings -- but the
+#'   family necessarily varies, and the anchor along with it: each refit uses
+#'   its own family's default anchor rather than `object`'s (see Details).
 #' @param families Character vector of families to try, any subset of
 #'   `c("kw", "ekw", "kkw", "bkw", "gkw", "mc", "beta")`. Defaults to all seven.
 #'   Restricting it is often sensible: `"gkw"` is weakly identified in every
@@ -645,6 +665,15 @@ print.gkwq_vuong <- function(x, digits = 4, ...) {
 #'
 #' \deqn{\mathrm{AIC} = -2\ell(\hat\theta) + 2p, \qquad
 #'       \mathrm{BIC} = -2\ell(\hat\theta) + p \log n.}
+#'
+#' The \eqn{n} in the \eqn{\mathrm{BIC}} term above is `nobs_eff`, the sum of
+#' the prior weights for that refit, not the row count `nobs`: a weight of
+#' \eqn{w} multiplies a row's log-density as though it were \eqn{w} replicated
+#' observations, so the dimension penalty has to sit on that same effective
+#' scale, or a heavily weighted refit would be penalized as though it had seen
+#' only as many observations as there are rows. The two coincide whenever
+#' weights are constant, the unweighted case included; see [vuong_test()] for
+#' the fuller account of the same distinction.
 #'
 #' Both are computed from the whole conditional density and differ only in how
 #' hard they penalize dimension: \eqn{\log n} exceeds 2 for any \eqn{n \ge 8},

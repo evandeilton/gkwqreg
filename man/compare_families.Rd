@@ -11,9 +11,11 @@ compare_families(
 )
 }
 \arguments{
-\item{object}{A fitted \code{"gkwqreg"} model whose call is reused. Everything is
-held fixed except the family: the same formula, data, quantile level,
-links, weights, offsets and control settings are used for every refit.}
+\item{object}{A fitted \code{"gkwqreg"} model whose call is reused. Almost
+everything is held fixed for every refit -- the same formula, data,
+quantile level, links, weights, offsets and control settings -- but the
+family necessarily varies, and the anchor along with it: each refit uses
+its own family's default anchor rather than \code{object}'s (see Details).}
 
 \item{families}{Character vector of families to try, any subset of
 \code{c("kw", "ekw", "kkw", "bkw", "gkw", "mc", "beta")}. Defaults to all seven.
@@ -75,6 +77,15 @@ of estimated coefficients and \eqn{n} the number of observations,
 
 \deqn{\mathrm{AIC} = -2\ell(\hat\theta) + 2p, \qquad
       \mathrm{BIC} = -2\ell(\hat\theta) + p \log n.}
+
+The \eqn{n} in the \eqn{\mathrm{BIC}} term above is \code{nobs_eff}, the sum of
+the prior weights for that refit, not the row count \code{nobs}: a weight of
+\eqn{w} multiplies a row's log-density as though it were \eqn{w} replicated
+observations, so the dimension penalty has to sit on that same effective
+scale, or a heavily weighted refit would be penalized as though it had seen
+only as many observations as there are rows. The two coincide whenever
+weights are constant, the unweighted case included; see \code{\link[=vuong_test]{vuong_test()}} for
+the fuller account of the same distinction.
 
 Both are computed from the whole conditional density and differ only in how
 hard they penalize dimension: \eqn{\log n} exceeds 2 for any \eqn{n \ge 8},
