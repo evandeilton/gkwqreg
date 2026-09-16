@@ -37,10 +37,14 @@ rearrange(object, newdata = NULL, ...)
 
 A numeric matrix of rearranged quantiles with the same dimensions and
 dimnames as the input quantile matrix: one row per evaluation
-observation, one column per level, columns named by level. The matrix
-carries an attribute `"crossing"` holding the `"gkwq_crossing"` object
-computed *before* rearrangement, so that what was repaired remains
-recoverable through `attr(x, "crossing")`.
+observation, one column per level, columns named by level as plain
+formatted numbers (`"0.1"`, the same convention as
+[`check_crossing()`](https://evandeilton.github.io/gkwqreg/reference/check_crossing.md)'s
+`Q` – not
+[`pinball()`](https://evandeilton.github.io/gkwqreg/reference/pinball.md)'s
+`"tau=0.1"` form). The matrix carries an attribute `"crossing"` holding
+the `"gkwq_crossing"` object computed *before* rearrangement, so that
+what was repaired remains recoverable through `attr(x, "crossing")`.
 
 ## Details
 

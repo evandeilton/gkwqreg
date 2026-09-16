@@ -119,9 +119,12 @@ components <code>table</code> (a data frame with one row per covariate and colum
 <code>link</code>, and <code>overlap</code> (the covariates that also enter a nuisance part). It
 has a <code>print</code> method; extract <code>x$table</code> for further computation.</p>
 <p>For <code>at = "observed"</code>, an object of class <code>"gkwq_meff_observed"</code>: a list with
-components <code>effects</code> (an <code>n</code> by <code>length(variables)</code> numeric matrix of
-per-row derivatives, columns named after the covariates), <code>at</code> and <code>tau</code>.
-There is no print method for this class; use <code>x$effects</code> directly.</p>
+components <code>effects</code> (an <code>n</code> by <code>p</code> numeric matrix of per-row derivatives,
+columns named after the covariates), <code>at</code> and <code>tau</code>. <code>p</code> is <code>length(variables)</code>
+after dropping any names not present among the quantile part's covariates
+(see <code>variables</code> above), so it can be smaller than <code>length(variables)</code> as
+originally supplied. There is no print method for this class; use
+<code>x$effects</code> directly.</p>
     </div>
     <div class="section level2">
     <h2 id="details">Details<a class="anchor" aria-label="anchor" href="#details"></a></h2>

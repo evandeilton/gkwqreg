@@ -88,6 +88,13 @@ data-generating one.
   log scale, so that extreme observations do not collapse onto
   \\\pm\infty\\. This is the default and the right first look: a normal
   quantile-quantile plot of them tests the whole specification at once.
+  An observation in a tail so extreme that both tails of \\F\\ underflow
+  still yields a non-finite value (`Inf`, `-Inf` or `NaN`); unlike
+  [`plot.gkwqreg()`](https://evandeilton.github.io/gkwqreg/reference/plot.gkwqreg.md),
+  which replaces these with `NA` before drawing its panels, this
+  function returns them uncleaned, so check
+  [`is.finite()`](https://rdrr.io/r/base/is.finite.html) before
+  summarising the output.
 
 - `"cox-snell"`:
 
@@ -95,7 +102,10 @@ data-generating one.
   so it carries exactly the same information. Prefer `"quantile"` for a
   normal quantile-quantile plot; prefer `"cox-snell"` when an
   exponential probability plot or a cumulative-hazard plot is wanted, as
-  is conventional in survival work.
+  is conventional in survival work. It uses only the upper tail of \\F\\
+  rather than whichever tail is better conditioned, so it can return a
+  non-finite value (`Inf`) more readily than `"quantile"` for
+  observations near the upper edge of the support.
 
 - `"pearson"`:
 
@@ -143,12 +153,21 @@ data-generating one.
 - `"check"`:
 
   The loss the model is fitted to minimise, evaluated observation by
-  observation. Its sample mean is exactly the pinball loss returned by
+  observation; unlike
+  [`pinball()`](https://evandeilton.github.io/gkwqreg/reference/pinball.md),
+  it does not apply prior `weights`. When every observation carries the
+  same weight – in particular whenever `weights` was left at its default
+  in
+  [`gkwqreg()`](https://evandeilton.github.io/gkwqreg/reference/gkwqreg.md)
+  – its sample mean is exactly the pinball loss returned by
   [`pinball()`](https://evandeilton.github.io/gkwqreg/reference/pinball.md),
   so plotting it against a covariate decomposes that single number and
-  shows where the fit deteriorates. It is non-negative and strongly
-  right-skewed; comparing its mean between two fits is comparing their
-  pinball losses.
+  shows where the fit deteriorates. Under unequal weights the two no
+  longer agree, because
+  [`pinball()`](https://evandeilton.github.io/gkwqreg/reference/pinball.md)
+  returns the weighted mean instead. It is non-negative and strongly
+  right-skewed; comparing its mean between two equally-weighted fits is
+  comparing their pinball losses.
 
 - `"tau-sign"`:
 

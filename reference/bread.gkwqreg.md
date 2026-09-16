@@ -35,12 +35,15 @@ A symmetric numeric matrix of dimension `p` by `p`, where
 ## Details
 
 The value is \$\$\widehat{\mathrm{bread}} \\=\\ n \\ \hat{H}^{-1} \\=\\
-\left(\frac{1}{n}\hat{H}\right)^{-1},\$\$ the inverse of the *average*
-observed information, which is the quantity that converges to a fixed
-matrix as \\n\\ grows. That normalization is what lets sandwich assemble
-\\\widehat{\mathrm{bread}} \\ \widehat{\mathrm{meat}} \\
-\widehat{\mathrm{bread}} / n\\ and recover the same estimator as
-`vcov(object, type = "sandwich")`.
+\left(\frac{1}{n}\hat{H}\right)^{-1},\$\$ where \\\hat{H}\\ is the
+observed information matrix at the fitted coefficients – see
+[`vcov.gkwqreg()`](https://evandeilton.github.io/gkwqreg/reference/vcov.gkwqreg.md)
+for its exact definition and how it is computed. The expression above is
+the inverse of the *average* observed information, which is the quantity
+that converges to a fixed matrix as \\n\\ grows. That normalization is
+what lets sandwich assemble \\\widehat{\mathrm{bread}} \\
+\widehat{\mathrm{meat}} \\ \widehat{\mathrm{bread}} / n\\ and recover
+the same estimator as `vcov(object, type = "sandwich")`.
 
 [`sandwich::vcovHC()`](https://zeileis.codeberg.page/sandwich/reference/vcovHC.html)
 is not supported for this class; see

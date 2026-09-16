@@ -45,7 +45,8 @@ qcrossing(object, newdata = NULL, taus = NULL, tol = 0, ...)
   counts as a crossing only if it exceeds `tol` in absolute value. The
   default `0` flags any decrease at all; a small positive value (say
   `1e-8`) is appropriate if you wish to ignore decreases attributable to
-  floating-point arithmetic rather than to the fit.
+  floating-point arithmetic rather than to the fit. Must be a single
+  non-negative number; a negative or non-scalar `tol` is an error.
 
 - ...:
 
@@ -63,7 +64,11 @@ An object of class `"gkwq_crossing"`, a list with components
 - `Q`:
 
   The \\n \times m\\ matrix of fitted quantiles, rows in the order of
-  the evaluation data and columns named by level.
+  the evaluation data and columns named by level, as plain formatted
+  numbers (`"0.1"`, via `format(tau, trim = TRUE)`) – not
+  [`pinball()`](https://evandeilton.github.io/gkwqreg/reference/pinball.md)'s
+  `"tau=0.1"` form (see that function's Value section for why the two
+  differ).
 
 - `mode`:
 

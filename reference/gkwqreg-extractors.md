@@ -111,8 +111,8 @@ summary(object, level = 0.95, vcov_type = NULL, ...)
   that wants it. The printed table reports estimates, standard errors
   and p-values rather than an interval, so changing `level` does not
   change what [`print()`](https://rdrr.io/r/base/print.html) shows; use
-  [`confint()`](https://rdrr.io/r/stats/confint.html) for an interval at
-  a chosen level.
+  [`confint.gkwqreg()`](https://evandeilton.github.io/gkwqreg/reference/confint.gkwqreg.md)
+  for an interval at a chosen level.
 
 - vcov_type:
 
@@ -135,7 +135,10 @@ summary(object, level = 0.95, vcov_type = NULL, ...)
 
 - [`logLik()`](https://rdrr.io/r/stats/logLik.html): an object of class
   `"logLik"` with attributes `df` (the number of estimated coefficients)
-  and `nobs`.
+  and `nobs`. Under prior weights the `nobs` attribute holds the
+  effective sample size `sum(w)` – the same adjustment described for the
+  `k` argument's BIC penalty – so it can differ from `nobs(object)`,
+  which always counts rows.
 
 - [`nobs()`](https://rdrr.io/r/stats/nobs.html): a single integer, the
   number of observations used in the fit.
@@ -168,8 +171,10 @@ summary(object, level = 0.95, vcov_type = NULL, ...)
 
 - [`summary()`](https://rdrr.io/r/base/summary.html): an object of class
   `"summary.gkwqreg"` carrying the coefficient table, the fit
-  statistics, the pinball loss, the pseudo-R1, the empirical coverage
-  and the information condition number, with a `print` method.
+  statistics, the pinball loss, the pseudo-R1, the empirical coverage,
+  the information condition number and a `parameter_summary` component
+  (a named numeric vector with the mean of each column of
+  `fitted(object, type = "parameter")`), with a `print` method.
 
 ## Details
 
@@ -266,7 +271,7 @@ gkwq_parts("kw")                    # the part contract this fit obeys
 #> [1] "mu"    "alpha"
 formula(fit)
 #> y ~ x1 + x2 | x1
-#> <environment: 0x5589ddf95b00>
+#> <environment: 0x5597aa6e1df0>
 
 ## -- fit statistics, all at this one quantile level ----------------------
 c(logLik = as.numeric(logLik(fit)), df = attr(logLik(fit), "df"),

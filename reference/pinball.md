@@ -40,7 +40,15 @@ pinball(object, newdata = NULL, y = NULL)
 A single number for a `"gkwqreg"` fit: the weighted mean check loss, on
 the scale of the response. For a `"gkwqregs"` container, a numeric
 vector with one entry per quantile level, named as the container's
-elements are (`"tau=0.1"` and so on).
+`fits` list already is: `"tau=0.1"` and so on. That prefixed form is
+**not** the naming convention used elsewhere in this file –
+[`check_crossing()`](https://evandeilton.github.io/gkwqreg/reference/check_crossing.md),
+[`rearrange()`](https://evandeilton.github.io/gkwqreg/reference/rearrange.md)
+and
+[`quantile_process()`](https://evandeilton.github.io/gkwqreg/reference/quantile_process.md)
+name their columns just `"0.1"`, with no `tau=` prefix, because they
+build the names themselves via `format(tau, trim = TRUE)` rather than
+inheriting them from `object$fits`.
 
 ## Details
 

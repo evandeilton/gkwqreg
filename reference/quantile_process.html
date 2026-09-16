@@ -79,7 +79,9 @@ already been computed and are simply harvested.</p></dd>
 
 <dt id="arg-taus">taus<a class="anchor" aria-label="anchor" href="#arg-taus"></a></dt>
 <dd><p>Increasing grid of quantile levels in \((0,1)\), used only
-when <code>object</code> is a single fit. <strong>Silently ignored when <code>object</code> is a
+when <code>object</code> is a single fit, and required to have at least two levels: a
+process is a curve over <code>tau</code>, and a single level does not define one, so
+fit <code><a href="gkwqreg.html">gkwqreg()</a></code> directly instead. <strong>Silently ignored when <code>object</code> is a
 <code>"gkwqregs"</code> container</strong>, whose levels are already fixed by its fits.</p></dd>
 
 
@@ -101,7 +103,9 @@ Ignored when <code>object</code> is a container.</p></dd>
 <dt><code>coef</code></dt>
 <dd><p>Coefficient matrix, one row per model coefficient and one
 column per level. Rows are named <code>"part:term"</code> (for example <code>"mu:x"</code>,
-<code>"alpha:(Intercept)"</code>); columns are named by level.</p></dd>
+<code>"alpha:(Intercept)"</code>); columns are named by level as plain formatted
+numbers (<code>"0.1"</code>, via <code>format(tau, trim = TRUE)</code> – not <code><a href="pinball.html">pinball()</a></code>'s
+<code>"tau=0.1"</code> form).</p></dd>
 
 <dt><code>se</code></dt>
 <dd><p>Standard errors, same shape and dimnames as <code>coef</code>.</p></dd>

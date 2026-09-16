@@ -54,6 +54,13 @@ which is the Kumaraswamy quantile reparametrization of Mitnik and Baek
 
 ``` r
 
+## `.gkwq_anchor_value()` is internal and not part of the public API: the package
+## exports the forward quantile function `gkwq_quantile()`, but not the inverse
+## anchor solve it uses internally to eliminate a parameter in favour of the
+## quantile. Reached here only via `getFromNamespace()` to show, live, that the
+## general solve reduces exactly to the closed-form Mitnik-Baek formula below --
+## this is illustration for the vignette, not a documented entry point, and the
+## internal name may change without notice.
 anchor <- getFromNamespace(".gkwq_anchor_value", "gkwqreg")
 mu <- 0.35; tau <- 0.25; a <- 1.8
 c(general = anchor("beta", mu, tau, alpha = a, gamma = 1, delta = 0,

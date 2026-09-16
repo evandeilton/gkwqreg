@@ -39,24 +39,25 @@ see that help page for the columns and the printed layout.
 ## Details
 
 `lrtest()` is a generic defined by this package, so that `gkwqreg` need
-not depend on `lmtest` merely to offer a familiar name. It is a
-*different* generic from
-[`lmtest::lrtest()`](https://rdrr.io/pkg/lmtest/man/lrtest.html), and
-the two mask one another when both packages are attached: whichever was
-attached last wins.
+not depend on `lmtest` merely to offer a familiar name. `lmtest` defines
+its own, different, generic of the same name, and if both packages are
+attached the unqualified name `lrtest` resolves to whichever was
+attached last – ordinary search-path masking, no different from any
+other pair of same-named exports.
 
-The distinction matters, because the two behave differently on these
-objects. If `lmtest` is attached after `gkwqreg`, a bare call to
-`lrtest()` reaches `lmtest`'s default method, which knows nothing about
-quantile levels or anchors. Handed two fits at different levels it will
-happily compute a difference of log-likelihoods and report a significant
-result – the very number that
+That masking never reaches method dispatch on a `"gkwqreg"` fit. On
+package load, `gkwqreg` registers `lrtest.gkwqreg` directly into
+`lmtest`'s own S3 method table via
+[`registerS3method()`](https://rdrr.io/r/base/ns-internal.html),
+provided `lmtest` is installed – whether or not it is attached. So even
+a bare `lrtest()` call that resolves to `lmtest`'s generic still finds
+this package's method for a `"gkwqreg"` object, not `lmtest`'s default
+method: the guards that
 [`anova.gkwqreg()`](https://evandeilton.github.io/gkwqreg/reference/anova.gkwqreg.md)
-refuses to produce, and for the reasons given there. Call
-`gkwqreg::lrtest()` or
-[`anova.gkwqreg()`](https://evandeilton.github.io/gkwqreg/reference/anova.gkwqreg.md)
-explicitly if there is any doubt about which generic is in scope; both
-carry the guards.
+applies, refusing a comparison across quantile levels or anchors,
+therefore hold regardless of attach order. The registration is specific
+to the `"gkwqreg"` class and has no bearing on `lrtest()` called on fits
+of any other class.
 
 ## See also
 

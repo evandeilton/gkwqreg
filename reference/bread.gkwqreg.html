@@ -82,8 +82,11 @@ the function errors.</p></dd>
     <p>The value is
 $$\widehat{\mathrm{bread}} \;=\; n \, \hat{H}^{-1}
   \;=\; \left(\frac{1}{n}\hat{H}\right)^{-1},$$
-the inverse of the <em>average</em> observed information, which is the quantity that
-converges to a fixed matrix as \(n\) grows. That normalization is what lets
+where \(\hat{H}\) is the observed information matrix at the fitted
+coefficients – see <code><a href="vcov.gkwqreg.html">vcov.gkwqreg()</a></code> for its exact definition and how it is
+computed. The expression above is the inverse of the <em>average</em> observed
+information, which is the quantity that converges to a fixed matrix as
+\(n\) grows. That normalization is what lets
 <span class="pkg">sandwich</span> assemble
 \(\widehat{\mathrm{bread}} \, \widehat{\mathrm{meat}} \,
 \widehat{\mathrm{bread}} / n\) and recover the same estimator as

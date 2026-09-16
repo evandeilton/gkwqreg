@@ -54,7 +54,8 @@ plot(x, which = 1:6, nsim = 100L, nbins = 10L, ...)
   [`stats::qqnorm()`](https://rdrr.io/r/stats/qqnorm.html) and does not
   receive them. Note that `main`, `xlab`, `ylab`, `pch`, `cex` and `col`
   are already supplied by each panel, so passing them again will raise a
-  duplicated-argument error.
+  duplicated-argument error; panel 6 additionally fixes `type` to `"h"`
+  for the same reason.
 
 ## Value
 
@@ -62,10 +63,9 @@ plot(x, which = 1:6, nsim = 100L, nbins = 10L, ...)
 
 ## Details
 
-Panels 1 to 3 and 6 are computed from the randomized-quantile residuals
-of Dunn and Smyth (1996), `residuals(x, type = "quantile")`, which for
-this family require no randomization because the distribution is
-continuous:
+Panels 1 to 3 are computed from the randomized-quantile residuals of
+Dunn and Smyth (1996), `residuals(x, type = "quantile")`, which for this
+family require no randomization because the distribution is continuous:
 
 \$\$r_i = \Phi^{-1}\left\\ F(y_i; \hat{\theta}\_i) \right\\.\$\$
 
@@ -191,7 +191,8 @@ labelled with their row number so that they can be looked up in the
 data. The threshold is a convention with no distributional basis: use it
 to rank observations, not to test them. This is the one panel that needs
 the estimated covariance matrix, so it is unavailable for a fit obtained
-with `gkwq_control(hessian = FALSE)`.
+with `gkwq_control(hessian = FALSE)`: an empty panel with an explanatory
+message is drawn in its place.
 
 ## References
 

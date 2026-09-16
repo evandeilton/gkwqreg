@@ -67,9 +67,11 @@ explain when that happens and which number to act on.</p>
 
 
 <dl><dt id="arg-object">object<a class="anchor" aria-label="anchor" href="#arg-object"></a></dt>
-<dd><p>A fitted <code>"gkwqreg"</code> model whose call is reused. Everything is
-held fixed except the family: the same formula, data, quantile level,
-links, weights, offsets and control settings are used for every refit.</p></dd>
+<dd><p>A fitted <code>"gkwqreg"</code> model whose call is reused. Almost
+everything is held fixed for every refit – the same formula, data,
+quantile level, links, weights, offsets and control settings – but the
+family necessarily varies, and the anchor along with it: each refit uses
+its own family's default anchor rather than <code>object</code>'s (see Details).</p></dd>
 
 
 <dt id="arg-families">families<a class="anchor" aria-label="anchor" href="#arg-families"></a></dt>
@@ -146,6 +148,14 @@ a lower bound on its maximum, so its AIC is not comparable with the rest.</p>
 of estimated coefficients and \(n\) the number of observations,</p>
 <p>$$\mathrm{AIC} = -2\ell(\hat\theta) + 2p, \qquad
       \mathrm{BIC} = -2\ell(\hat\theta) + p \log n.$$</p>
+<p>The \(n\) in the \(\mathrm{BIC}\) term above is <code>nobs_eff</code>, the sum of
+the prior weights for that refit, not the row count <code>nobs</code>: a weight of
+\(w\) multiplies a row's log-density as though it were \(w\) replicated
+observations, so the dimension penalty has to sit on that same effective
+scale, or a heavily weighted refit would be penalized as though it had seen
+only as many observations as there are rows. The two coincide whenever
+weights are constant, the unweighted case included; see <code><a href="vuong_test.html">vuong_test()</a></code> for
+the fuller account of the same distinction.</p>
 <p>Both are computed from the whole conditional density and differ only in how
 hard they penalize dimension: \(\log n\) exceeds 2 for any \(n \ge 8\),
 so BIC prefers smaller models and is consistent for the true model when it

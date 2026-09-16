@@ -123,21 +123,25 @@ in <code>formula</code>. If missing, they are looked up in the environment of
 <dt id="arg-tau">tau<a class="anchor" aria-label="anchor" href="#arg-tau"></a></dt>
 <dd><p>Quantile level in <code>(0,1)</code>. A vector returns a <code>"gkwqregs"</code>
 container of independent fits, one per level, fitted from the level nearest
-the median outward with warm starts. Mandatory in the sense that it is never
+the median outward with warm starts. Duplicate levels are silently dropped
+and the levels are sorted ascending before fitting (<code>sort(unique(tau))</code>),
+so the <code>$taus</code> component and the order of <code>$fits</code> follow that order, not
+the order <code>tau</code> was supplied in. Mandatory in the sense that it is never
 estimated: the profile likelihood in <code>tau</code> is exactly flat, so <code>tau</code> indexes
 the question, not the model.</p></dd>
 
 
 <dt id="arg-family">family<a class="anchor" aria-label="anchor" href="#arg-family"></a></dt>
 <dd><p>One of <code>"kw"</code>, <code>"ekw"</code>, <code>"kkw"</code>, <code>"bkw"</code>, <code>"gkw"</code>, <code>"mc"</code>,
-<code>"beta"</code>. See the table above for the constraints each imposes.</p></dd>
+<code>"beta"</code>. See <em>The seven families</em>, below, for the constraints each
+imposes.</p></dd>
 
 
 <dt id="arg-anchor">anchor<a class="anchor" aria-label="anchor" href="#arg-anchor"></a></dt>
 <dd><p>The parameter eliminated in favour of the conditional quantile,
-or <code>NULL</code> for the family default. See the section above; this is a modeling
-argument, not an internal detail. <code><a href="gkwq_anchors.html">gkwq_anchors()</a></code> lists what a family
-allows.</p></dd>
+or <code>NULL</code> for the family default. See <em>The anchor is a modeling choice</em>,
+below; this is a modeling argument, not an internal detail.
+<code><a href="gkwq_anchors.html">gkwq_anchors()</a></code> lists what a family allows.</p></dd>
 
 
 <dt id="arg-link">link<a class="anchor" aria-label="anchor" href="#arg-link"></a></dt>
@@ -180,7 +184,9 @@ of <code>formula</code>, and the two add.</p></dd>
 <dt id="arg-na-action">na.action<a class="anchor" aria-label="anchor" href="#arg-na-action"></a></dt>
 <dd><p>How to treat missing values in the model frame; defaults to
 <code><a href="https://rdrr.io/r/stats/na.fail.html" class="external-link">stats::na.omit()</a></code>. Responses at exactly 0 or 1 lie outside the support and
-are an error, never silently clamped.</p></dd>
+are an error, never silently clamped; that is separate from the <code>eps_y</code>
+guard of <code><a href="gkwq_control.html">gkwq_control()</a></code>, which nudges values that are merely <em>close</em> to
+0 or 1 (but not exactly there) a hair inward for numerical safety.</p></dd>
 
 
 <dt id="arg-contrasts">contrasts<a class="anchor" aria-label="anchor" href="#arg-contrasts"></a></dt>
@@ -222,7 +228,11 @@ reads from it.</p></dd>
 <dd><p>standard errors, the inverse
 observed information, the observed information itself, and its exact
 condition number. <code>cond_number</code> above <code>1e8</code> is the signature of a weakly
-identified fit.</p></dd>
+identified fit. All four are attempted only when <code>control$hessian</code> is
+<code>TRUE</code> (the default); with <code>control$hessian = FALSE</code>, or if
+<code><a href="https://rdrr.io/r/stats/optim.html" class="external-link">stats::optimHess()</a></code>, <code><a href="https://rdrr.io/r/base/solve.html" class="external-link">solve()</a></code> or <code><a href="https://rdrr.io/r/base/kappa.html" class="external-link">kappa()</a></code> fails, the fit still
+returns – <code>hessian</code> and <code>vcov</code> come back <code>NULL</code>, and <code>se</code> and
+<code>cond_number</code> come back <code>NA</code>, instead of stopping it.</p></dd>
 
 <dt><code>fitted.values</code></dt>
 <dd><p>the fitted conditional \(\tau\)-quantiles
@@ -237,12 +247,14 @@ offsets included.</p></dd>
 <code>alpha</code>, <code>beta</code>, <code>gamma</code>, <code>delta</code>, <code>lambda</code> per observation, the anchored
 column included.</p></dd>
 
-<dt><code>loglik</code>, <code>loglik_i</code>, <code>npar</code>, <code>nobs</code>, <code>aic</code>, <code>bic</code></dt>
-<dd><p>the maximized
-log-likelihood (re-evaluated at the reported coefficients, never taken
-from the optimizer's own record), its per-observation contributions, the
-number of estimated coefficients, the sample size, and the two
-information criteria.</p></dd>
+<dt><code>loglik</code>, <code>loglik_i</code>, <code>npar</code>, <code>nobs</code>, <code>nobs_eff</code>, <code>aic</code>, <code>bic</code></dt>
+<dd><p>the
+maximized log-likelihood (re-evaluated at the reported coefficients,
+never taken from the optimizer's own record), its per-observation
+contributions, the number of estimated coefficients, the sample size,
+the weighted effective sample size <code>sum(weights)</code> (what <code>bic</code> is
+actually penalised by; equal to <code>nobs</code> under unit weights, and
+different from it otherwise), and the two information criteria.</p></dd>
 
 <dt><code>pinball</code></dt>
 <dd><p>the in-sample check loss
@@ -266,9 +278,12 @@ contrasts recorded at fit time, all used by <code>predict(newdata =)</code>.</p>
 <dd><p>the prior weights and the per-part offsets.</p></dd>
 
 <dt><code>convergence</code>, <code>message</code>, <code>iterations</code></dt>
-<dd><p>the optimizer's exit code,
-message and iteration count. A non-zero code triggers a warning at fit
-time and a note in <code><a href="https://rdrr.io/r/base/summary.html" class="external-link">summary()</a></code>.</p></dd>
+<dd><p>the optimizer's exit code
+and message, and the iteration count – but the last of these is only
+ever populated under <code>control$method = "nlminb"</code>; <code><a href="https://rdrr.io/r/stats/optim.html" class="external-link">stats::optim()</a></code> (any
+other method) reports no <code>$iterations</code> component, so <code>iterations</code> is
+then always <code>NA_integer_</code>. A non-zero <code>convergence</code> code triggers a
+warning at fit time and a note in <code><a href="https://rdrr.io/r/base/summary.html" class="external-link">summary()</a></code>.</p></dd>
 
 <dt><code>control</code>, <code>start</code>, <code>obj</code></dt>
 <dd><p>the control object, the starting values
@@ -278,7 +293,11 @@ external pointers, so it is valid only in the session that built it.</p></dd>
 
 <dt><code>model</code>, <code>x</code>, <code>y</code></dt>
 <dd><p>present only when the matching argument was <code>TRUE</code>:
-the model frame, the list of design matrices, and the (clamped) response.</p></dd>
+the model frame, the list of design matrices, and the response after the
+<code>eps_y</code> guard of <code><a href="gkwq_control.html">gkwq_control()</a></code> – values strictly inside <code>(0,1)</code> but
+closer than <code>eps_y</code> to an endpoint are nudged to <code>[eps_y, 1 - eps_y]</code>;
+values exactly at 0 or 1 never reach this step, because <code>na.action</code>
+above already turns those into an error.</p></dd>
 
 
 </dl><p>For a vector <code>tau</code>, an object of class <code>"gkwqregs"</code> with components <code>fits</code> (a

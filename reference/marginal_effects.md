@@ -76,10 +76,12 @@ nuisance part). It has a `print` method; extract `x$table` for further
 computation.
 
 For `at = "observed"`, an object of class `"gkwq_meff_observed"`: a list
-with components `effects` (an `n` by `length(variables)` numeric matrix
-of per-row derivatives, columns named after the covariates), `at` and
-`tau`. There is no print method for this class; use `x$effects`
-directly.
+with components `effects` (an `n` by `p` numeric matrix of per-row
+derivatives, columns named after the covariates), `at` and `tau`. `p` is
+`length(variables)` after dropping any names not present among the
+quantile part's covariates (see `variables` above), so it can be smaller
+than `length(variables)` as originally supplied. There is no print
+method for this class; use `x$effects` directly.
 
 ## Details
 

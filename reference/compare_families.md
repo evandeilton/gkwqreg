@@ -19,9 +19,11 @@ compare_families(
 
 - object:
 
-  A fitted `"gkwqreg"` model whose call is reused. Everything is held
-  fixed except the family: the same formula, data, quantile level,
-  links, weights, offsets and control settings are used for every refit.
+  A fitted `"gkwqreg"` model whose call is reused. Almost everything is
+  held fixed for every refit – the same formula, data, quantile level,
+  links, weights, offsets and control settings – but the family
+  necessarily varies, and the anchor along with it: each refit uses its
+  own family's default anchor rather than `object`'s (see Details).
 
 - families:
 
@@ -107,6 +109,16 @@ of estimated coefficients and \\n\\ the number of observations,
 
 \$\$\mathrm{AIC} = -2\ell(\hat\theta) + 2p, \qquad \mathrm{BIC} =
 -2\ell(\hat\theta) + p \log n.\$\$
+
+The \\n\\ in the \\\mathrm{BIC}\\ term above is `nobs_eff`, the sum of
+the prior weights for that refit, not the row count `nobs`: a weight of
+\\w\\ multiplies a row's log-density as though it were \\w\\ replicated
+observations, so the dimension penalty has to sit on that same effective
+scale, or a heavily weighted refit would be penalized as though it had
+seen only as many observations as there are rows. The two coincide
+whenever weights are constant, the unweighted case included; see
+[`vuong_test()`](https://evandeilton.github.io/gkwqreg/reference/vuong_test.md)
+for the fuller account of the same distinction.
 
 Both are computed from the whole conditional density and differ only in
 how hard they penalize dimension: \\\log n\\ exceeds 2 for any \\n \ge

@@ -144,11 +144,29 @@ after the parts (<code>mu</code> first), holding the linear predictors.</p></li>
 are named after <code>at</code>, or a numeric vector of length <code>n</code> when
 <code>elementwise = TRUE</code>.</p></li>
 <li><p><code>"terms"</code>: a named list with one matrix per model part. Each matrix has <code>n</code>
-rows and one column per non-intercept term of that part; a part with no
-covariates contributes a matrix with zero columns.</p></li>
+rows and one column per non-intercept <em>column of that part's model
+matrix</em> – one column per dummy for a factor, not one column per formula
+term. This is <strong>not</strong> the same convention as
+<code>stats::predict.lm(type = "terms")</code>, which aggregates a factor's dummies
+into a single column per term; a part with no covariates contributes a
+matrix with zero columns.</p></li>
 </ul><p>Applying <code><a href="https://rdrr.io/r/stats/predict.html" class="external-link">predict()</a></code> to the <code>"gkwqregs"</code> container returned by a vector-valued
-<code>tau</code> predicts from each fit in turn, and binds the results column-wise, named
-by level, when every level returned a plain vector of the same length.</p>
+<code>tau</code> runs <code><a href="https://rdrr.io/r/stats/predict.html" class="external-link">predict()</a></code> on each fit in turn. The results are bound
+column-wise into a single numeric matrix – columns named after the levels
+(e.g. <code>"0.25"</code>, via <code>format(object$taus, trim = TRUE)</code>) – <strong>only when
+every level's result is a plain, dim-less numeric vector of the same
+length</strong>, which holds for the default <code>type</code> (with <code>tau</code> left <code>NULL</code>), for
+<code>type = "mu"</code>/<code>"mean"</code>/<code>"variance"</code>, and for <code>"density"</code>/<code>"probability"</code>
+when <code>elementwise = TRUE</code>. For any call where at least one level returns
+something else instead – a data frame (<code>type = "parameter"</code>/<code>"link"</code>), a
+list (<code>type = "terms"</code>), or a matrix (a vector <code>tau</code>, or
+<code>elementwise = FALSE</code>) – <code><a href="https://rdrr.io/r/stats/predict.html" class="external-link">predict()</a></code> on the container returns a plain list
+instead, one element per level, holding whatever <code>predict.gkwqreg()</code>
+returned for that level. That list's names are not set explicitly inside
+<code><a href="gkwqregs-methods.html">predict.gkwqregs()</a></code>; they come along from <code>object$fits</code> and so follow
+<em>its</em> <code>"tau=&lt;level&gt;"</code> convention (e.g. <code>"tau=0.25"</code>) – note this differs
+from the plain <code>"&lt;level&gt;"</code> (e.g. <code>"0.25"</code>) used for the matrix's column
+names.</p>
     </div>
     <div class="section level2">
     <h2 id="details">Details<a class="anchor" aria-label="anchor" href="#details"></a></h2>
@@ -170,7 +188,7 @@ scale (see the examples).</p>
     <div class="section level2">
     <h2 id="values-of-type">Values of <code>type</code><a class="anchor" aria-label="anchor" href="#values-of-type"></a></h2>
 
-<table class="table table"><tr><td><code>type</code></td><td>What is returned</td><td>Typical use</td></tr><tr><td><code>"quantile"</code> (default), <code>"response"</code></td><td>the conditional tau-quantile; with <code>tau</code> supplied, several quantiles of the same fitted distribution</td><td>the headline prediction</td></tr><tr><td><code>"mu"</code></td><td>the conditional tau-quantile, always ignoring <code>tau</code></td><td>when the fitted level is wanted inside code that passes <code>tau</code> around</td></tr><tr><td><code>"link"</code></td><td>the linear predictors of every part, each on its own link scale</td><td>diagnostics, and plotting on the scale the model is linear in</td></tr><tr><td><code>"parameter"</code></td><td>the reconstructed five distribution parameters per row</td><td>handing the fitted conditional law to <code>gkwdist</code> functions</td></tr><tr><td><code>"mean"</code></td><td>the conditional mean, by 64-node Gauss-Legendre quadrature of the quantile function</td><td>comparison with a mean-parametrized fit</td></tr><tr><td><code>"variance"</code></td><td>the conditional variance, by the same quadrature</td><td>assessing conditional dispersion</td></tr><tr><td><code>"density"</code></td><td>the conditional density evaluated at <code>at</code></td><td>likelihood displays, simulated envelopes</td></tr><tr><td><code>"probability"</code></td><td>the conditional distribution function evaluated at <code>at</code></td><td>exceedance probabilities, probability-integral-transform checks</td></tr><tr><td><code>"terms"</code></td><td>each term's additive contribution to its part's linear predictor</td><td>partial-effect plots</td></tr></table><p><code>"mean"</code> and <code>"variance"</code> integrate \(\int_0^1 Q(u)^k \, du\) rather than
+<table class="table table"><tr><td><code>type</code></td><td>What is returned</td><td>Typical use</td></tr><tr><td><code>"quantile"</code> (default), <code>"response"</code></td><td>the conditional tau-quantile; with <code>tau</code> supplied, several quantiles of the same fitted distribution</td><td>the headline prediction</td></tr><tr><td><code>"mu"</code></td><td>the conditional tau-quantile, always ignoring <code>tau</code></td><td>when the fitted level is wanted inside code that passes <code>tau</code> around</td></tr><tr><td><code>"link"</code></td><td>the linear predictors of every part, each on its own link scale</td><td>diagnostics, and plotting on the scale the model is linear in</td></tr><tr><td><code>"parameter"</code></td><td>the reconstructed five distribution parameters per row</td><td>handing the fitted conditional law to <code>gkwdist</code> functions</td></tr><tr><td><code>"mean"</code></td><td>the conditional mean, by 64-node Gauss-Legendre quadrature of the quantile function</td><td>comparison with a mean-parametrized fit</td></tr><tr><td><code>"variance"</code></td><td>the conditional variance, by the same quadrature</td><td>assessing conditional dispersion</td></tr><tr><td><code>"density"</code></td><td>the conditional density evaluated at <code>at</code></td><td>likelihood displays, simulated envelopes</td></tr><tr><td><code>"probability"</code></td><td>the conditional distribution function evaluated at <code>at</code></td><td>exceedance probabilities, probability-integral-transform checks</td></tr><tr><td><code>"terms"</code></td><td>each retained coefficient's additive contribution to its part's linear predictor – one column per model-matrix column, not per formula term</td><td>partial-effect plots</td></tr></table><p><code>"mean"</code> and <code>"variance"</code> integrate \(\int_0^1 Q(u)^k \, du\) rather than
 the density, because \(Q\) is available in closed form and has no boundary
 singularity to work around. They are provided so that a quantile fit can be
 put beside a mean-parametrized one; reporting the conditional mean as though
@@ -302,6 +320,11 @@ quantiles, <code><a href="marginal_effects.html">marginal_effects()</a></code> f
 <span class="r-out co"><span class="r-pr">#&gt;</span> 1 -0.8578107   0</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> 2  0.0000000   0</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> 3  0.8578107   0</span>
+<span class="r-in"><span><span class="co">## One column per non-intercept column of the "mu" model matrix, not per</span></span></span>
+<span class="r-in"><span><span class="co">## formula term: `x2` here has only two levels, so its one dummy and its</span></span></span>
+<span class="r-in"><span><span class="co">## one term coincide. A factor with more levels would contribute one</span></span></span>
+<span class="r-in"><span><span class="co">## column per dummy, unlike stats::predict.lm(type = "terms"), which</span></span></span>
+<span class="r-in"><span><span class="co">## aggregates a factor's dummies into a single column per term.</span></span></span>
 </code></pre></div>
     </div>
   </main><aside class="col-md-3"><nav id="toc" aria-label="Table of contents"><h2>On this page</h2>

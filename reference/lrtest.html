@@ -92,17 +92,21 @@ layout.</p>
     <div class="section level2">
     <h2 id="details">Details<a class="anchor" aria-label="anchor" href="#details"></a></h2>
     <p><code>lrtest()</code> is a generic defined by this package, so that <code>gkwqreg</code> need not
-depend on <code>lmtest</code> merely to offer a familiar name. It is a <em>different</em>
-generic from <code><a href="https://rdrr.io/pkg/lmtest/man/lrtest.html" class="external-link">lmtest::lrtest()</a></code>, and the two mask one another when both
-packages are attached: whichever was attached last wins.</p>
-<p>The distinction matters, because the two behave differently on these
-objects. If <code>lmtest</code> is attached after <code>gkwqreg</code>, a bare call to <code>lrtest()</code>
-reaches <code>lmtest</code>'s default method, which knows nothing about quantile levels
-or anchors. Handed two fits at different levels it will happily compute a
-difference of log-likelihoods and report a significant result – the very
-number that <code><a href="anova.gkwqreg.html">anova.gkwqreg()</a></code> refuses to produce, and for the reasons given
-there. Call <code>gkwqreg::lrtest()</code> or <code><a href="anova.gkwqreg.html">anova.gkwqreg()</a></code> explicitly if there is any doubt
-about which generic is in scope; both carry the guards.</p>
+depend on <code>lmtest</code> merely to offer a familiar name. <code>lmtest</code> defines its
+own, different, generic of the same name, and if both packages are attached
+the unqualified name <code>lrtest</code> resolves to whichever was attached last –
+ordinary search-path masking, no different from any other pair of
+same-named exports.</p>
+<p>That masking never reaches method dispatch on a <code>"gkwqreg"</code> fit. On package
+load, <code>gkwqreg</code> registers <code>lrtest.gkwqreg</code> directly into <code>lmtest</code>'s own S3
+method table via <code><a href="https://rdrr.io/r/base/ns-internal.html" class="external-link">registerS3method()</a></code>, provided <code>lmtest</code> is installed –
+whether or not it is attached. So even a bare <code>lrtest()</code> call that resolves
+to <code>lmtest</code>'s generic still finds this package's method for a <code>"gkwqreg"</code>
+object, not <code>lmtest</code>'s default method: the guards that <code><a href="anova.gkwqreg.html">anova.gkwqreg()</a></code>
+applies, refusing a comparison across quantile levels or anchors, therefore
+hold regardless of attach order. The registration is specific to the
+<code>"gkwqreg"</code> class and has no bearing on <code>lrtest()</code> called on fits of any
+other class.</p>
     </div>
     <div class="section level2">
     <h2 id="see-also">See also<a class="anchor" aria-label="anchor" href="#see-also"></a></h2>

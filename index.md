@@ -38,7 +38,7 @@ needed at run time.
 
 ## Five minutes to your first model
 
-Six steps. Copy each block in turn; everything is self-contained.
+Seven steps. Copy each block in turn; everything is self-contained.
 
 ### 1. Simulate a bounded response
 
@@ -176,6 +176,42 @@ observation, so any quantile, any exceedance probability and any moment
 is available from one fit — and the quantiles it reports can never
 cross, because they come from one proper distribution function.
 
+### 7. Look beyond the Wald standard errors
+
+Every standard error and interval above is the Wald approximation:
+estimate plus or minus `z * se`.
+[`confint()`](https://rdrr.io/r/stats/confint.html) can instead invert
+the profile likelihood or bootstrap, and
+[`gkwq_boot()`](https://evandeilton.github.io/gkwqreg/reference/gkwq_boot.md)
+— the bootstrap engine underneath it — is also useful on its own, to
+check whether those Wald numbers can be trusted.
+
+``` r
+
+round(confint(fit), 4)
+#>                     2.5 %  97.5 %
+#> mu:(Intercept)    -0.0112  0.3017
+#> mu:income          1.4398  2.0226
+#> mu:regionurban    -0.6531 -0.3437
+#> alpha:(Intercept)  0.8300  0.9827
+
+gkwq_boot(fit, R = 100, seed = 1)
+#>
+#> Bootstrap for a kw quantile regression (tau = 0.9, anchor beta)
+#> pairs bootstrap, 100 of 100 replicates converged
+#>
+#>                   Estimate Boot SE    2.5%   97.5%
+#> mu:(Intercept)      0.1452  0.0786 -0.0050  0.3039
+#> mu:income           1.7312  0.1550  1.4189  2.0044
+#> mu:regionurban     -0.4984  0.0896 -0.6787 -0.3322
+#> alpha:(Intercept)   0.9063  0.0370  0.8285  0.9780
+```
+
+[`gkwq_boot()`](https://evandeilton.github.io/gkwqreg/reference/gkwq_boot.md)
+resamples whole rows by default (`type = "pairs"`), so — unlike the Wald
+and parametric-bootstrap alternatives — its spread does not assume the
+`kw` family is correctly specified.
+
 ### Where to go next
 
 ``` r
@@ -226,9 +262,12 @@ quantile, it is one — the likelihood is identical either way.
 
 It stops being one as soon as the quantile varies with covariates while
 a nuisance parameter is held constant. Anchoring on β then asserts *“α
-constant, βᵢ = f(μᵢ, α)”*; anchoring on α asserts the reverse. In the
-design study behind this package the two differed by **131 in
-log-likelihood** and by **41% in the coefficient of interest**.
+constant, βᵢ = f(μᵢ, α)”*; anchoring on α asserts the reverse. The two
+anchors then fit genuinely different models: on simulated data they can
+differ substantially in both log-likelihood and in the coefficient of
+interest, as
+[`vignette("gkwqreg-anchor")`](https://evandeilton.github.io/gkwqreg/articles/gkwqreg-anchor.md)
+demonstrates live, under “The finding that matters”.
 
 Two anchors give non-nested models of equal dimension. Compare them with
 [`vuong_test()`](https://evandeilton.github.io/gkwqreg/reference/vuong_test.md),
@@ -240,7 +279,8 @@ refuses:
 fa <- gkwqreg(y ~ x, data = d, tau = 0.9, family = "kw", anchor = "alpha")
 anova(fit, fa)
 #> Error: models with different anchors cannot be compared by a likelihood-ratio
-#> test: they are non-nested models of equal dimension.
+#> test: they are non-nested models of equal dimension. Compare them by AIC, BIC
+#> or a Vuong test instead. Anchors seen: beta, alpha.
 vuong_test(fit, fa)
 ```
 

@@ -60,20 +60,24 @@ gkwqreg(
 
   Quantile level in `(0,1)`. A vector returns a `"gkwqregs"` container
   of independent fits, one per level, fitted from the level nearest the
-  median outward with warm starts. Mandatory in the sense that it is
-  never estimated: the profile likelihood in `tau` is exactly flat, so
-  `tau` indexes the question, not the model.
+  median outward with warm starts. Duplicate levels are silently dropped
+  and the levels are sorted ascending before fitting
+  (`sort(unique(tau))`), so the `$taus` component and the order of
+  `$fits` follow that order, not the order `tau` was supplied in.
+  Mandatory in the sense that it is never estimated: the profile
+  likelihood in `tau` is exactly flat, so `tau` indexes the question,
+  not the model.
 
 - family:
 
   One of `"kw"`, `"ekw"`, `"kkw"`, `"bkw"`, `"gkw"`, `"mc"`, `"beta"`.
-  See the table above for the constraints each imposes.
+  See *The seven families*, below, for the constraints each imposes.
 
 - anchor:
 
   The parameter eliminated in favour of the conditional quantile, or
-  `NULL` for the family default. See the section above; this is a
-  modeling argument, not an internal detail.
+  `NULL` for the family default. See *The anchor is a modeling choice*,
+  below; this is a modeling argument, not an internal detail.
   [`gkwq_anchors()`](https://evandeilton.github.io/gkwqreg/reference/gkwq_anchors.md)
   lists what a family allows.
 
@@ -122,7 +126,10 @@ gkwqreg(
   How to treat missing values in the model frame; defaults to
   [`stats::na.omit()`](https://rdrr.io/r/stats/na.fail.html). Responses
   at exactly 0 or 1 lie outside the support and are an error, never
-  silently clamped.
+  silently clamped; that is separate from the `eps_y` guard of
+  [`gkwq_control()`](https://evandeilton.github.io/gkwqreg/reference/gkwq_control.md),
+  which nudges values that are merely *close* to 0 or 1 (but not exactly
+  there) a hair inward for numerical safety.
 
 - contrasts:
 
@@ -171,7 +178,14 @@ components include
 
   standard errors, the inverse observed information, the observed
   information itself, and its exact condition number. `cond_number`
-  above `1e8` is the signature of a weakly identified fit.
+  above `1e8` is the signature of a weakly identified fit. All four are
+  attempted only when `control$hessian` is `TRUE` (the default); with
+  `control$hessian = FALSE`, or if
+  [`stats::optimHess()`](https://rdrr.io/r/stats/optim.html),
+  [`solve()`](https://rdrr.io/r/base/solve.html) or
+  [`kappa()`](https://rdrr.io/r/base/kappa.html) fails, the fit still
+  returns – `hessian` and `vcov` come back `NULL`, and `se` and
+  `cond_number` come back `NA`, instead of stopping it.
 
 - `fitted.values`:
 
@@ -187,12 +201,15 @@ components include
   an `n` by 5 data frame of the reconstructed `alpha`, `beta`, `gamma`,
   `delta`, `lambda` per observation, the anchored column included.
 
-- `loglik`, `loglik_i`, `npar`, `nobs`, `aic`, `bic`:
+- `loglik`, `loglik_i`, `npar`, `nobs`, `nobs_eff`, `aic`, `bic`:
 
   the maximized log-likelihood (re-evaluated at the reported
   coefficients, never taken from the optimizer's own record), its
   per-observation contributions, the number of estimated coefficients,
-  the sample size, and the two information criteria.
+  the sample size, the weighted effective sample size `sum(weights)`
+  (what `bic` is actually penalised by; equal to `nobs` under unit
+  weights, and different from it otherwise), and the two information
+  criteria.
 
 - `pinball`:
 
@@ -221,8 +238,13 @@ components include
 
 - `convergence`, `message`, `iterations`:
 
-  the optimizer's exit code, message and iteration count. A non-zero
-  code triggers a warning at fit time and a note in
+  the optimizer's exit code and message, and the iteration count – but
+  the last of these is only ever populated under
+  `control$method = "nlminb"`;
+  [`stats::optim()`](https://rdrr.io/r/stats/optim.html) (any other
+  method) reports no `$iterations` component, so `iterations` is then
+  always `NA_integer_`. A non-zero `convergence` code triggers a warning
+  at fit time and a note in
   [`summary()`](https://rdrr.io/r/base/summary.html).
 
 - `control`, `start`, `obj`:
@@ -236,7 +258,13 @@ components include
 - `model`, `x`, `y`:
 
   present only when the matching argument was `TRUE`: the model frame,
-  the list of design matrices, and the (clamped) response.
+  the list of design matrices, and the response after the `eps_y` guard
+  of
+  [`gkwq_control()`](https://evandeilton.github.io/gkwqreg/reference/gkwq_control.md)
+  – values strictly inside `(0,1)` but closer than `eps_y` to an
+  endpoint are nudged to `[eps_y, 1 - eps_y]`; values exactly at 0 or 1
+  never reach this step, because `na.action` above already turns those
+  into an error.
 
 For a vector `tau`, an object of class `"gkwqregs"` with components
 `fits` (a named list of `"gkwqreg"` objects, one per level), `taus`,

@@ -125,7 +125,14 @@ Baek (2013), and the <code>kum</code> family of
 <code>unitquantreg</code>. The general formula <em>contains</em> the
 established result as its two-parameter slice:</p>
 <div class="sourceCode" id="cb2"><pre class="downlit sourceCode r">
-<code class="sourceCode R"><span><span class="va">anchor</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/utils/getFromNamespace.html" class="external-link">getFromNamespace</a></span><span class="op">(</span><span class="st">".gkwq_anchor_value"</span>, <span class="st">"gkwqreg"</span><span class="op">)</span></span>
+<code class="sourceCode R"><span><span class="co">## `.gkwq_anchor_value()` is internal and not part of the public API: the package</span></span>
+<span><span class="co">## exports the forward quantile function `gkwq_quantile()`, but not the inverse</span></span>
+<span><span class="co">## anchor solve it uses internally to eliminate a parameter in favour of the</span></span>
+<span><span class="co">## quantile. Reached here only via `getFromNamespace()` to show, live, that the</span></span>
+<span><span class="co">## general solve reduces exactly to the closed-form Mitnik-Baek formula below --</span></span>
+<span><span class="co">## this is illustration for the vignette, not a documented entry point, and the</span></span>
+<span><span class="co">## internal name may change without notice.</span></span>
+<span><span class="va">anchor</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/utils/getFromNamespace.html" class="external-link">getFromNamespace</a></span><span class="op">(</span><span class="st">".gkwq_anchor_value"</span>, <span class="st">"gkwqreg"</span><span class="op">)</span></span>
 <span><span class="va">mu</span> <span class="op">&lt;-</span> <span class="fl">0.35</span>; <span class="va">tau</span> <span class="op">&lt;-</span> <span class="fl">0.25</span>; <span class="va">a</span> <span class="op">&lt;-</span> <span class="fl">1.8</span></span>
 <span><span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span>general <span class="op">=</span> <span class="fu">anchor</span><span class="op">(</span><span class="st">"beta"</span>, <span class="va">mu</span>, <span class="va">tau</span>, alpha <span class="op">=</span> <span class="va">a</span>, gamma <span class="op">=</span> <span class="fl">1</span>, delta <span class="op">=</span> <span class="fl">0</span>,</span>
 <span>                   lambda <span class="op">=</span> <span class="fl">1</span>, z_mode <span class="op">=</span> <span class="fl">1L</span><span class="op">)</span>,</span>

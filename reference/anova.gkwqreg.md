@@ -207,12 +207,14 @@ which is built for models of equal dimension that do not nest; AIC and
 BIC are also legitimate.
 
 A third case is warned about rather than refused. If two fits of *equal*
-dimension reach the test by some other route – same family, same anchor,
-same level, but different covariates of the same count – a warning is
-issued and the corresponding `Pr(>Chisq)` entry is `NA`. `Chisq` itself
-is still reported: with zero degrees of freedom there is no p-value to
-compute, but the raw log-likelihood difference remains visible for
-inspection.
+dimension reach the test by some other route – typically the same family
+and anchor, at the same level, but with different covariates of the same
+count – a warning is issued and the corresponding `Pr(>Chisq)` entry is
+`NA`. The trigger is the tied `Df` itself, not the family: two
+different, non-nested families that happen to land on the same `Df` are
+caught the same way. `Chisq` itself is still reported: with zero degrees
+of freedom there is no p-value to compute, but the raw log-likelihood
+difference remains visible for inspection.
 
 ## See also
 

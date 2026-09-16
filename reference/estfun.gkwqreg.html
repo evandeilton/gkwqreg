@@ -106,9 +106,10 @@ current session, rather than returning numbers it cannot stand behind.</p>
 
 
 <p><code><a href="https://zeileis.codeberg.page/sandwich/reference/vcovHC.html" class="external-link">sandwich::vcovHC()</a></code> is <strong>not</strong> supported and will error with "cannot match
-dimension of model.matrix and estfun". It needs working residuals and a
-single design matrix whose columns line up one-for-one with the scores. This
-is a multi-part model with one design matrix <em>per part</em>, so
+dimension of model.matrix and estfun to obtain working residuals". It needs
+working residuals and a single design matrix whose columns line up
+one-for-one with the scores. This is a multi-part model with one design
+matrix <em>per part</em>, so
 <code><a href="https://rdrr.io/r/stats/model.matrix.html" class="external-link">model.matrix()</a></code> returns the <code>mu</code> block while <code>estfun()</code> spans every
 coefficient of every part, and the two cannot be made to line up. There is no
 sensible thing for a heteroskedasticity-consistent correction to do here.

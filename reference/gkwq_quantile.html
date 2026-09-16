@@ -130,7 +130,8 @@ complement approaches one, a regime the default <code>beta</code> anchor visits
 routinely.</p>
 <p>Checked against <code><a href="https://evandeilton.github.io/gkwdist/reference/qgkw.html" class="external-link">gkwdist::qgkw</a></code> over a 1701-point parameter grid – seven
 levels of \(\tau\) spanning 0.01 to 0.99, with each of the five parameters
-taking three values – the largest absolute discrepancy is <code>2.7e-14</code>.</p>
+taking three values – the largest absolute discrepancy is <code>0</code>: the two
+agree to the last bit at every point checked.</p>
     </div>
     <div class="section level2">
     <h2 id="see-also">See also<a class="anchor" aria-label="anchor" href="#see-also"></a></h2>
@@ -177,7 +178,7 @@ parameter in turn; <code><a href="gkwq_parts.html">gkwq_parts()</a></code> for t
 <span class="r-in"><span><span class="fu"><a href="https://rdrr.io/r/base/Extremes.html" class="external-link">max</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/MathFun.html" class="external-link">abs</a></span><span class="op">(</span><span class="fu">gkwq_quantile</span><span class="op">(</span><span class="va">g</span><span class="op">$</span><span class="va">t</span>, <span class="va">g</span><span class="op">$</span><span class="va">a</span>, <span class="va">g</span><span class="op">$</span><span class="va">b</span>, <span class="va">g</span><span class="op">$</span><span class="va">gm</span>, <span class="va">g</span><span class="op">$</span><span class="va">d</span>, <span class="va">g</span><span class="op">$</span><span class="va">L</span><span class="op">)</span> <span class="op">-</span></span></span>
 <span class="r-in"><span>        <span class="fu">gkwdist</span><span class="fu">::</span><span class="fu"><a href="https://evandeilton.github.io/gkwdist/reference/qgkw.html" class="external-link">qgkw</a></span><span class="op">(</span><span class="va">g</span><span class="op">$</span><span class="va">t</span>, <span class="va">g</span><span class="op">$</span><span class="va">a</span>, <span class="va">g</span><span class="op">$</span><span class="va">b</span>, <span class="va">g</span><span class="op">$</span><span class="va">gm</span>, <span class="va">g</span><span class="op">$</span><span class="va">d</span>, <span class="va">g</span><span class="op">$</span><span class="va">L</span><span class="op">)</span><span class="op">)</span><span class="op">)</span></span></span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> [1] 2.738261e-14</span>
-<span class="r-in"><span><span class="co">## [1] 2.738261e-14</span></span></span>
+<span class="r-in"><span><span class="co">## [1] 0</span></span></span>
 <span class="r-in"><span></span></span>
 <span class="r-in"><span><span class="co">## The identity that anchoring inverts. Fix a level and a target quantile,</span></span></span>
 <span class="r-in"><span><span class="co">## then choose beta so that Q(tau) hits the target exactly. This is the</span></span></span>

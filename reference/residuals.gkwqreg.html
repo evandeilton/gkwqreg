@@ -127,14 +127,21 @@ to call. They are computed from whichever tail of \(F\) is better
 conditioned, on the log scale, so that extreme observations do not
 collapse onto \(\pm\infty\). This is the default and the right first
 look: a normal quantile-quantile plot of them tests the whole
-specification at once.</p></dd>
+specification at once. An observation in a tail so extreme that both
+tails of \(F\) underflow still yields a non-finite value (<code>Inf</code>,
+<code>-Inf</code> or <code>NaN</code>); unlike <code><a href="plot.gkwqreg.html">plot.gkwqreg()</a></code>, which replaces these with
+<code>NA</code> before drawing its panels, this function returns them uncleaned,
+so check <code><a href="https://rdrr.io/r/base/is.finite.html" class="external-link">is.finite()</a></code> before summarising the output.</p></dd>
 
 <dt><code>"cox-snell"</code></dt>
 <dd><p>A monotone transformation of the same probability
 integral transform, so it carries exactly the same information. Prefer
 <code>"quantile"</code> for a normal quantile-quantile plot; prefer <code>"cox-snell"</code>
 when an exponential probability plot or a cumulative-hazard plot is
-wanted, as is conventional in survival work.</p></dd>
+wanted, as is conventional in survival work. It uses only the upper
+tail of \(F\) rather than whichever tail is better conditioned, so it
+can return a non-finite value (<code>Inf</code>) more readily than <code>"quantile"</code>
+for observations near the upper edge of the support.</p></dd>
 
 <dt><code>"pearson"</code></dt>
 <dd><p>Neither the conditional mean nor the conditional
@@ -178,11 +185,15 @@ zero, and there is no reason it should be.</p></dd>
 
 <dt><code>"check"</code></dt>
 <dd><p>The loss the model is fitted to minimise, evaluated
-observation by observation. Its sample mean is exactly the pinball loss
-returned by <code><a href="pinball.html">pinball()</a></code>, so plotting it against a covariate decomposes
-that single number and shows where the fit deteriorates. It is
+observation by observation; unlike <code><a href="pinball.html">pinball()</a></code>, it does not apply prior
+<code>weights</code>. When every observation carries the same weight – in
+particular whenever <code>weights</code> was left at its default in <code><a href="gkwqreg.html">gkwqreg()</a></code> –
+its sample mean is exactly the pinball loss returned by <code><a href="pinball.html">pinball()</a></code>, so
+plotting it against a covariate decomposes that single number and shows
+where the fit deteriorates. Under unequal weights the two no longer
+agree, because <code><a href="pinball.html">pinball()</a></code> returns the weighted mean instead. It is
 non-negative and strongly right-skewed; comparing its mean between two
-fits is comparing their pinball losses.</p></dd>
+equally-weighted fits is comparing their pinball losses.</p></dd>
 
 <dt><code>"tau-sign"</code></dt>
 <dd><p>The sharpest check the model admits, and the one with

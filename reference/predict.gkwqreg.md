@@ -104,13 +104,34 @@ The shape depends on `type`, and for `"quantile"` also on `tau`.
   `elementwise = TRUE`.
 
 - `"terms"`: a named list with one matrix per model part. Each matrix
-  has `n` rows and one column per non-intercept term of that part; a
-  part with no covariates contributes a matrix with zero columns.
+  has `n` rows and one column per non-intercept *column of that part's
+  model matrix* – one column per dummy for a factor, not one column per
+  formula term. This is **not** the same convention as
+  `stats::predict.lm(type = "terms")`, which aggregates a factor's
+  dummies into a single column per term; a part with no covariates
+  contributes a matrix with zero columns.
 
 Applying [`predict()`](https://rdrr.io/r/stats/predict.html) to the
-`"gkwqregs"` container returned by a vector-valued `tau` predicts from
-each fit in turn, and binds the results column-wise, named by level,
-when every level returned a plain vector of the same length.
+`"gkwqregs"` container returned by a vector-valued `tau` runs
+[`predict()`](https://rdrr.io/r/stats/predict.html) on each fit in turn.
+The results are bound column-wise into a single numeric matrix – columns
+named after the levels (e.g. `"0.25"`, via
+`format(object$taus, trim = TRUE)`) – **only when every level's result
+is a plain, dim-less numeric vector of the same length**, which holds
+for the default `type` (with `tau` left `NULL`), for
+`type = "mu"`/`"mean"`/`"variance"`, and for `"density"`/`"probability"`
+when `elementwise = TRUE`. For any call where at least one level returns
+something else instead – a data frame (`type = "parameter"`/`"link"`), a
+list (`type = "terms"`), or a matrix (a vector `tau`, or
+`elementwise = FALSE`) –
+[`predict()`](https://rdrr.io/r/stats/predict.html) on the container
+returns a plain list instead, one element per level, holding whatever
+`predict.gkwqreg()` returned for that level. That list's names are not
+set explicitly inside
+[`predict.gkwqregs()`](https://evandeilton.github.io/gkwqreg/reference/gkwqregs-methods.md);
+they come along from `object$fits` and so follow *its* `"tau=<level>"`
+convention (e.g. `"tau=0.25"`) – note this differs from the plain
+`"<level>"` (e.g. `"0.25"`) used for the matrix's column names.
 
 ## Details
 
@@ -143,7 +164,7 @@ drifted onto some other scale (see the examples).
 | `"variance"` | the conditional variance, by the same quadrature | assessing conditional dispersion |
 | `"density"` | the conditional density evaluated at `at` | likelihood displays, simulated envelopes |
 | `"probability"` | the conditional distribution function evaluated at `at` | exceedance probabilities, probability-integral-transform checks |
-| `"terms"` | each term's additive contribution to its part's linear predictor | partial-effect plots |
+| `"terms"` | each retained coefficient's additive contribution to its part's linear predictor – one column per model-matrix column, not per formula term | partial-effect plots |
 
 `"mean"` and `"variance"` integrate \\\int_0^1 Q(u)^k \\ du\\ rather
 than the density, because \\Q\\ is available in closed form and has no
@@ -289,4 +310,9 @@ predict(fit, nd, type = "terms")$mu
 #> 1 -0.8578107   0
 #> 2  0.0000000   0
 #> 3  0.8578107   0
+## One column per non-intercept column of the "mu" model matrix, not per
+## formula term: `x2` here has only two levels, so its one dummy and its
+## one term coincide. A factor with more levels would contribute one
+## column per dummy, unlike stats::predict.lm(type = "terms"), which
+## aggregates a factor's dummies into a single column per term.
 ```

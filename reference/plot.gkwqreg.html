@@ -95,7 +95,8 @@ from one or two bins.</p></dd>
 <dd><p>Passed to the underlying <code><a href="https://rdrr.io/r/graphics/plot.default.html" class="external-link">graphics::plot()</a></code> calls in panels 1, 2, 4,
 5 and 6. Panel 3 is drawn by <code><a href="https://rdrr.io/r/stats/qqnorm.html" class="external-link">stats::qqnorm()</a></code> and does not receive them.
 Note that <code>main</code>, <code>xlab</code>, <code>ylab</code>, <code>pch</code>, <code>cex</code> and <code>col</code> are already supplied
-by each panel, so passing them again will raise a duplicated-argument error.</p></dd>
+by each panel, so passing them again will raise a duplicated-argument error;
+panel 6 additionally fixes <code>type</code> to <code>"h"</code> for the same reason.</p></dd>
 
 </dl></div>
     <div class="section level2">
@@ -104,7 +105,7 @@ by each panel, so passing them again will raise a duplicated-argument error.</p>
     </div>
     <div class="section level2">
     <h2 id="details">Details<a class="anchor" aria-label="anchor" href="#details"></a></h2>
-    <p>Panels 1 to 3 and 6 are computed from the randomized-quantile residuals of Dunn
+    <p>Panels 1 to 3 are computed from the randomized-quantile residuals of Dunn
 and Smyth (1996), <code>residuals(x, type = "quantile")</code>, which for this family
 require no randomization because the distribution is continuous:</p>
 <p>$$r_i = \Phi^{-1}\left\{ F(y_i; \hat{\theta}_i) \right\}.$$</p>
@@ -224,7 +225,8 @@ threshold are highlighted and labelled with their row number so that they can be
 looked up in the data. The threshold is a convention with no distributional
 basis: use it to rank observations, not to test them. This is the one panel
 that needs the estimated covariance matrix, so it is unavailable for a fit
-obtained with <code>gkwq_control(hessian = FALSE)</code>.</p>
+obtained with <code>gkwq_control(hessian = FALSE)</code>: an empty panel with an
+explanatory message is drawn in its place.</p>
     </div>
     <div class="section level2">
     <h2 id="references">References<a class="anchor" aria-label="anchor" href="#references"></a></h2>

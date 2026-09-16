@@ -84,7 +84,9 @@ vector-valued <code>tau</code>.</p></dd>
 
 
 <dt id="arg--">...<a class="anchor" aria-label="anchor" href="#arg--"></a></dt>
-<dd><p>Passed on to the corresponding method for each individual fit.</p></dd>
+<dd><p>Passed on to the corresponding method for each individual fit,
+except for <code><a href="https://rdrr.io/r/stats/logLik.html" class="external-link">logLik()</a></code>, which always errors and never touches <code>...</code>; see
+Details.</p></dd>
 
 
 <dt id="arg-newdata">newdata<a class="anchor" aria-label="anchor" href="#arg-newdata"></a></dt>
@@ -100,12 +102,21 @@ evaluate every fit, with the same requirements as
 quantile level, the columns named by level.</p></li>
 <li><p><code><a href="https://rdrr.io/r/stats/fitted.values.html" class="external-link">fitted()</a></code>: a numeric matrix with one row per observation and one column
 per level, holding each fit's conditional quantiles.</p></li>
+<li><p><code><a href="https://rdrr.io/r/stats/logLik.html" class="external-link">logLik()</a></code>: never returns; it raises an error explaining why.</p></li>
 <li><p><code><a href="https://rdrr.io/r/base/summary.html" class="external-link">summary()</a></code>: a list of <code>"summary.gkwqreg"</code> objects, one per level.</p></li>
-<li><p><code><a href="https://rdrr.io/r/stats/predict.html" class="external-link">predict()</a></code>: a numeric matrix with one row per prediction and one column
-per level, from each fit in turn.</p></li>
+<li><p><code><a href="https://rdrr.io/r/stats/predict.html" class="external-link">predict()</a></code>: runs <code><a href="https://rdrr.io/r/stats/predict.html" class="external-link">predict()</a></code> on each fit and binds the results into a
+numeric matrix, one row per prediction and one column per level (named
+after the level, e.g. <code>"0.25"</code>) – but <strong>only when every level's result is
+a plain, dim-less numeric vector of the same length</strong> (true for the
+default <code>type</code> with <code>tau</code> left <code>NULL</code>, for <code>type = "mu"</code>/<code>"mean"</code>/
+<code>"variance"</code>, and for <code>"density"</code>/<code>"probability"</code> under the default
+<code>elementwise = TRUE</code>). Otherwise it returns a plain list instead, one
+element per level holding whatever <code><a href="predict.gkwqreg.html">predict.gkwqreg()</a></code> returns for that
+call, named by <code>object$fits</code>'s own <code>"tau=&lt;level&gt;"</code> convention (e.g.
+<code>"tau=0.25"</code>) – note this differs from the matrix's plain <code>"&lt;level&gt;"</code>
+column names.</p></li>
 <li><p><code><a href="https://rdrr.io/r/stats/residuals.html" class="external-link">residuals()</a></code>: a numeric matrix with one row per observation and one column
 per level.</p></li>
-<li><p><code><a href="https://rdrr.io/r/stats/logLik.html" class="external-link">logLik()</a></code>: never returns; it raises an error explaining why.</p></li>
 </ul></div>
     <div class="section level2">
     <h2 id="details">Details<a class="anchor" aria-label="anchor" href="#details"></a></h2>

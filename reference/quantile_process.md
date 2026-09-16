@@ -25,8 +25,12 @@ quantile_process(object, taus = seq(0.05, 0.95, by = 0.05), level = 0.95, ...)
 - taus:
 
   Increasing grid of quantile levels in \\(0,1)\\, used only when
-  `object` is a single fit. **Silently ignored when `object` is a
-  `"gkwqregs"` container**, whose levels are already fixed by its fits.
+  `object` is a single fit, and required to have at least two levels: a
+  process is a curve over `tau`, and a single level does not define one,
+  so fit
+  [`gkwqreg()`](https://evandeilton.github.io/gkwqreg/reference/gkwqreg.md)
+  directly instead. **Silently ignored when `object` is a `"gkwqregs"`
+  container**, whose levels are already fixed by its fits.
 
 - level:
 
@@ -52,7 +56,10 @@ An object of class `"gkwq_process"`, a list with components
 
   Coefficient matrix, one row per model coefficient and one column per
   level. Rows are named `"part:term"` (for example `"mu:x"`,
-  `"alpha:(Intercept)"`); columns are named by level.
+  `"alpha:(Intercept)"`); columns are named by level as plain formatted
+  numbers (`"0.1"`, via `format(tau, trim = TRUE)` – not
+  [`pinball()`](https://evandeilton.github.io/gkwqreg/reference/pinball.md)'s
+  `"tau=0.1"` form).
 
 - `se`:
 

@@ -87,8 +87,12 @@ explicitly. Ignored when <code>newdata</code> is <code>NULL</code>.</p></dd>
     <h2 id="value">Value<a class="anchor" aria-label="anchor" href="#value"></a></h2>
     <p>A single number for a <code>"gkwqreg"</code> fit: the weighted mean check loss,
 on the scale of the response. For a <code>"gkwqregs"</code> container, a numeric vector
-with one entry per quantile level, named as the container's elements are
-(<code>"tau=0.1"</code> and so on).</p>
+with one entry per quantile level, named as the container's <code>fits</code> list
+already is: <code>"tau=0.1"</code> and so on. That prefixed form is <strong>not</strong> the naming
+convention used elsewhere in this file – <code><a href="check_crossing.html">check_crossing()</a></code>, <code><a href="rearrange.html">rearrange()</a></code>
+and <code><a href="quantile_process.html">quantile_process()</a></code> name their columns just <code>"0.1"</code>, with no <code>tau=</code>
+prefix, because they build the names themselves via
+<code>format(tau, trim = TRUE)</code> rather than inheriting them from <code>object$fits</code>.</p>
     </div>
     <div class="section level2">
     <h2 id="details">Details<a class="anchor" aria-label="anchor" href="#details"></a></h2>

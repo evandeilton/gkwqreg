@@ -60,13 +60,13 @@ it cannot stand behind.
 
 [`sandwich::vcovHC()`](https://zeileis.codeberg.page/sandwich/reference/vcovHC.html)
 is **not** supported and will error with "cannot match dimension of
-model.matrix and estfun". It needs working residuals and a single design
-matrix whose columns line up one-for-one with the scores. This is a
-multi-part model with one design matrix *per part*, so
-[`model.matrix()`](https://rdrr.io/r/stats/model.matrix.html) returns
-the `mu` block while `estfun()` spans every coefficient of every part,
-and the two cannot be made to line up. There is no sensible thing for a
-heteroskedasticity-consistent correction to do here. Use
+model.matrix and estfun to obtain working residuals". It needs working
+residuals and a single design matrix whose columns line up one-for-one
+with the scores. This is a multi-part model with one design matrix *per
+part*, so [`model.matrix()`](https://rdrr.io/r/stats/model.matrix.html)
+returns the `mu` block while `estfun()` spans every coefficient of every
+part, and the two cannot be made to line up. There is no sensible thing
+for a heteroskedasticity-consistent correction to do here. Use
 `vcov(object, type = "sandwich")`, which is the same estimator computed
 correctly, or
 [`sandwich::vcovCL()`](https://zeileis.codeberg.page/sandwich/reference/vcovCL.html)
