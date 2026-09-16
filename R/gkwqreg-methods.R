@@ -1042,8 +1042,17 @@ print.gkwqregs <- function(x, ...) {
 #'   per level, holding each fit's conditional quantiles.
 #' * `logLik()`: never returns; it raises an error explaining why.
 #' * `summary()`: a list of `"summary.gkwqreg"` objects, one per level.
-#' * `predict()`: a numeric matrix with one row per prediction and one column
-#'   per level, from each fit in turn.
+#' * `predict()`: runs `predict()` on each fit and binds the results into a
+#'   numeric matrix, one row per prediction and one column per level (named
+#'   after the level, e.g. `"0.25"`) -- but **only when every level's result is
+#'   a plain, dim-less numeric vector of the same length** (true for the
+#'   default `type` with `tau` left `NULL`, for `type = "mu"`/`"mean"`/
+#'   `"variance"`, and for `"density"`/`"probability"` under the default
+#'   `elementwise = TRUE`). Otherwise it returns a plain list instead, one
+#'   element per level holding whatever [predict.gkwqreg()] returns for that
+#'   call, named by `object$fits`'s own `"tau=<level>"` convention (e.g.
+#'   `"tau=0.25"`) -- note this differs from the matrix's plain `"<level>"`
+#'   column names.
 #' * `residuals()`: a numeric matrix with one row per observation and one column
 #'   per level.
 #'

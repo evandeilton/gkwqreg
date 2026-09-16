@@ -53,9 +53,12 @@ components \code{table} (a data frame with one row per covariate and columns
 has a \code{print} method; extract \code{x$table} for further computation.
 
 For \code{at = "observed"}, an object of class \code{"gkwq_meff_observed"}: a list with
-components \code{effects} (an \code{n} by \code{length(variables)} numeric matrix of
-per-row derivatives, columns named after the covariates), \code{at} and \code{tau}.
-There is no print method for this class; use \code{x$effects} directly.
+components \code{effects} (an \code{n} by \code{p} numeric matrix of per-row derivatives,
+columns named after the covariates), \code{at} and \code{tau}. \code{p} is \code{length(variables)}
+after dropping any names not present among the quantile part's covariates
+(see \code{variables} above), so it can be smaller than \code{length(variables)} as
+originally supplied. There is no print method for this class; use
+\code{x$effects} directly.
 }
 \description{
 Translates the coefficients of the conditional quantile, which are effects on

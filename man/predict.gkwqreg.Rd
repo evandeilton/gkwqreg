@@ -70,13 +70,31 @@ after the parts (\code{mu} first), holding the linear predictors.
 are named after \code{at}, or a numeric vector of length \code{n} when
 \code{elementwise = TRUE}.
 \item \code{"terms"}: a named list with one matrix per model part. Each matrix has \code{n}
-rows and one column per non-intercept term of that part; a part with no
-covariates contributes a matrix with zero columns.
+rows and one column per non-intercept \emph{column of that part's model
+matrix} -- one column per dummy for a factor, not one column per formula
+term. This is \strong{not} the same convention as
+\code{stats::predict.lm(type = "terms")}, which aggregates a factor's dummies
+into a single column per term; a part with no covariates contributes a
+matrix with zero columns.
 }
 
 Applying \code{predict()} to the \code{"gkwqregs"} container returned by a vector-valued
-\code{tau} predicts from each fit in turn, and binds the results column-wise, named
-by level, when every level returned a plain vector of the same length.
+\code{tau} runs \code{predict()} on each fit in turn. The results are bound
+column-wise into a single numeric matrix -- columns named after the levels
+(e.g. \code{"0.25"}, via \code{format(object$taus, trim = TRUE)}) -- \strong{only when
+every level's result is a plain, dim-less numeric vector of the same
+length}, which holds for the default \code{type} (with \code{tau} left \code{NULL}), for
+\code{type = "mu"}/\code{"mean"}/\code{"variance"}, and for \code{"density"}/\code{"probability"}
+when \code{elementwise = TRUE}. For any call where at least one level returns
+something else instead -- a data frame (\code{type = "parameter"}/\code{"link"}), a
+list (\code{type = "terms"}), or a matrix (a vector \code{tau}, or
+\code{elementwise = FALSE}) -- \code{predict()} on the container returns a plain list
+instead, one element per level, holding whatever \code{predict.gkwqreg()}
+returned for that level. That list's names are not set explicitly inside
+\code{predict.gkwqregs()}; they come along from \code{object$fits} and so follow
+\emph{its} \code{"tau=<level>"} convention (e.g. \code{"tau=0.25"}) -- note this differs
+from the plain \code{"<level>"} (e.g. \code{"0.25"}) used for the matrix's column
+names.
 }
 \description{
 Evaluates a fitted \code{\link[=gkwqreg]{gkwqreg()}} model at the estimation data or at \code{newdata}.
@@ -113,7 +131,7 @@ scale (see the examples).
    \code{"variance"} \tab the conditional variance, by the same quadrature \tab assessing conditional dispersion \cr
    \code{"density"} \tab the conditional density evaluated at \code{at} \tab likelihood displays, simulated envelopes \cr
    \code{"probability"} \tab the conditional distribution function evaluated at \code{at} \tab exceedance probabilities, probability-integral-transform checks \cr
-   \code{"terms"} \tab each term's additive contribution to its part's linear predictor \tab partial-effect plots \cr
+   \code{"terms"} \tab each retained coefficient's additive contribution to its part's linear predictor -- one column per model-matrix column, not per formula term \tab partial-effect plots \cr
 }
 
 
@@ -212,6 +230,11 @@ predict(fit, nd, type = "probability", at = 0.5)                 # 3 x 1
 
 ## -- additive term contributions ----------------------------------------
 predict(fit, nd, type = "terms")$mu
+## One column per non-intercept column of the "mu" model matrix, not per
+## formula term: `x2` here has only two levels, so its one dummy and its
+## one term coincide. A factor with more levels would contribute one
+## column per dummy, unlike stats::predict.lm(type = "terms"), which
+## aggregates a factor's dummies into a single column per term.
 }
 \seealso{
 \code{\link[=gkwqreg]{gkwqreg()}} for the model, \code{\link[=fitted.gkwqreg]{fitted.gkwqreg()}} for the in-sample
