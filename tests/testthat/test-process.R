@@ -66,6 +66,17 @@ test_that("compare_families ranks families and Vuong compares anchors", {
   expect_output(print(vt), "Vuong")
 })
 
+test_that("compare_families refuses a family override through ...", {
+  ## cl$family <- fm was set per row, then silently clobbered by
+  ## `for (nm in names(extra)) cl[[nm]] <- extra[[nm]]` whenever `family` was
+  ## also passed in `...` -- every row was refit under the override while the
+  ## `family` column kept reporting the one that was intended.
+  d <- sim_kw(n = 100)
+  f <- gkwqreg(y ~ x, data = d, tau = 0.5, family = "kw")
+  expect_error(compare_families(f, families = c("kw", "ekw"), family = "beta"),
+               "cannot be passed through")
+})
+
 test_that("plots run without error", {
   skip_if_not(capabilities("png"))
   d <- sim_kw(n = 150)

@@ -175,8 +175,11 @@
 #'
 #' A third case is warned about rather than refused. If two fits of *equal*
 #' dimension reach the test by some other route -- same family, same anchor,
-#' same level, but different covariates of the same count -- a warning is issued
-#' and the corresponding `Chisq` and `Pr(>Chisq)` entries are `NA`.
+#' same level, but different covariates of the same count -- a warning is
+#' issued and the corresponding `Pr(>Chisq)` entry is `NA`. `Chisq` itself is
+#' still reported: with zero degrees of freedom there is no p-value to
+#' compute, but the raw log-likelihood difference remains visible for
+#' inspection.
 #'
 #' @return
 #' A data frame of class `"anova.gkwqreg"`, inheriting from `"anova"` and
@@ -192,7 +195,11 @@
 #'   \item{`Chi Df`}{the difference in `Df` against the row above; `NA` in the
 #'     first row.}
 #'   \item{`Pr(>Chisq)`}{the upper-tail chi-squared probability; `NA` in the
-#'     first row and wherever `Chi Df` is not positive.}
+#'     first row, wherever `Chi Df` is not positive (see *What this method
+#'     refuses, and why*), wherever the two families being compared are not
+#'     nested (see *The families are genuinely nested*), and wherever the
+#'     log-likelihood falls despite an increase in `Df`, which signals a fit
+#'     that has not converged rather than evidence about the data.}
 #' }
 #' The `print()` method formats the table through [stats::printCoefmat()] and
 #' prepends the heading.
@@ -363,6 +370,16 @@ print.anova.gkwqreg <- function(x, ...) {
 #' \deqn{m_i = \ell_{1i}(\hat\theta_1) - \ell_{2i}(\hat\theta_2), \qquad
 #'       i = 1, \ldots, n.}
 #'
+#' Here \eqn{n} is the number of observations, `object$nobs`. If the fits
+#' carry prior weights, each \eqn{\ell_{ki}} already includes its own weight
+#' (as in [gkwqreg()]), but \eqn{n} is not itself reweighted, so the sample
+#' mean and variance below are the ordinary (unweighted) mean and variance of
+#' those already-weighted terms. That is exact whenever the weights are
+#' constant, the unweighted case included, because the common factor cancels
+#' between the numerator and \eqn{s}; it is a reasonable approximation, not an
+#' exact weighted extension of Vuong's test, when the weights vary across
+#' observations.
+#'
 #' With `correction = TRUE` these differences are shifted by the per-observation
 #' share of the dimension penalty,
 #'
@@ -419,6 +436,13 @@ print.anova.gkwqreg <- function(x, ...) {
 #' comparison rather than an informal reading of one. When \eqn{p_1 = p_2} the
 #' correction term vanishes identically and the two settings of `correction`
 #' agree to the last digit.
+#'
+#' The \eqn{n} here is the same `object$nobs` used throughout this page, not
+#' `object$nobs_eff` (the sum of the prior weights) that a single fit's own
+#' `BIC()` and the `BIC` column of [compare_families()] are built on. The two
+#' coincide when weights are constant, which is also when the identity above
+#' matches `object$bic` exactly; under weights that vary across observations
+#' the two BICs diverge, for the reason given in *The statistic*.
 #'
 #' @section When this test does not apply:
 #' The standard normal reference requires the two models to be *strictly*
@@ -520,18 +544,25 @@ vuong_test <- function(object, object2, correction = TRUE) {
          call. = FALSE)
   }
   ## Same family under two anchors is the case this test exists for: those are
-  ## non-nested models of equal dimension, and anova() sends them here. Only a
-  ## fit compared with itself is refused.
+  ## non-nested models of equal dimension, and anova() sends them here. What
+  ## this refuses is the same model compared with itself -- same family, same
+  ## anchor, and the same covariates on every part -- not merely a shared
+  ## family and anchor: two fits that share both but differ in their
+  ## covariates are still two different models.
   if (identical(object$family, object2$family) &&
-      identical(object$anchor, object2$anchor)) {
+      identical(object$anchor, object2$anchor) &&
+      identical(deparse(object$formula), deparse(object2$formula))) {
     stop("both fits use family ", sQuote(object$family), " with anchor ",
-         sQuote(object$anchor), "; a Vuong test compares two different models.",
-         call. = FALSE)
+         sQuote(object$anchor), " and the same covariates; a Vuong test ",
+         "compares two different models.", call. = FALSE)
   }
-  ## Same scale as the log-likelihood differences being averaged: loglik_i
-  ## carries w(i), so the n that scales their mean must be sum(w).
-  n <- object$nobs_eff %||% object$nobs
+  ## n must be length(m): mean() and sd() below divide by the row count, and
+  ## sqrt(n) has to sit on the same scale or the two disagree about how many
+  ## terms are being averaged. object$nobs_eff (sum of the prior weights) is
+  ## the right n for a single fit's own BIC, which has no average to keep
+  ## consistent with -- but not for this one; see "The dimension correction".
   m <- object$loglik_i - object2$loglik_i
+  n <- length(m)
   if (correction) {
     m <- m - (object$npar - object2$npar) * log(n) / (2 * n)
   }
@@ -583,8 +614,9 @@ print.gkwq_vuong <- function(x, digits = 4, ...) {
 #'   the data at all merely costs time.
 #' @param ... Overrides applied to the stored call before each family is
 #'   refitted. Anything valid for [gkwqreg()] may be given, so a single
-#'   `compare_families(fit, tau = 0.9)` refits every family at that level. The
-#'   `family` argument itself is set per row and cannot be overridden here.
+#'   `compare_families(fit, tau = 0.9)` refits every family at that level.
+#'   `family` is set per row from the `families` argument; passing `family`
+#'   here is an error.
 #'
 #' @details
 #' The stored call of `object` is re-evaluated once per family, with `family`
@@ -737,11 +769,17 @@ compare_families <- function(object,
   ## breaks the moment this is called through another function.
   env <- parent.frame()
   extra <- list(...)
+  if ("family" %in% names(extra)) {
+    stop("`family` cannot be passed through `...`: it is set per row from ",
+         "`families`. Overriding it here would silently refit every row ",
+         "under the same family while the `family` column kept reporting ",
+         "the one that was intended.", call. = FALSE)
+  }
   rows <- lapply(families, function(fm) {
     cl <- object$call
     cl$family <- fm
     cl$anchor <- NULL          # each family gets its own default anchor
-    ## Anything in `...` overrides the original call, so a single
+    ## Anything else in `...` overrides the original call, so a single
     ## compare_families(fit, tau = 0.9) refits every family at that level.
     for (nm in names(extra)) cl[[nm]] <- extra[[nm]]
     f <- suppressWarnings(try(eval(cl, env), silent = TRUE))

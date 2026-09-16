@@ -204,3 +204,22 @@ test_that("vuong_test refuses the comparisons its reference cannot support", {
   a2 <- suppressWarnings(gkwqreg(y ~ x, d, tau = 0.5, family = "kw", anchor = "alpha"))
   expect_true(is.finite(vuong_test(a1, a2)$statistic))
 })
+
+test_that("vuong_test accepts same family and anchor with different covariates", {
+  ## The guard used to fire on family+anchor identity alone, refusing a
+  ## legitimate comparison between two fits that happen to share both but
+  ## differ in their covariates -- exactly the case the param docs promise to
+  ## accept. Only a genuine refit of the same covariates is refused.
+  set.seed(13); n <- 300; x <- stats::runif(n); z <- stats::runif(n)
+  d <- data.frame(y = stats::qbeta(stats::runif(n), 2 + x + z, 3), x = x, z = z)
+  f1 <- suppressWarnings(gkwqreg(y ~ x, d, tau = 0.5, family = "kw"))
+  f2 <- suppressWarnings(gkwqreg(y ~ x + z, d, tau = 0.5, family = "kw"))
+
+  v <- vuong_test(f1, f2)
+  expect_s3_class(v, "gkwq_vuong")
+  expect_true(is.finite(v$statistic))
+
+  ## A genuine refit of the identical model is still refused.
+  f1b <- suppressWarnings(gkwqreg(y ~ x, d, tau = 0.5, family = "kw"))
+  expect_error(vuong_test(f1, f1b), "same covariates")
+})

@@ -23,8 +23,9 @@ the data at all merely costs time.}
 
 \item{...}{Overrides applied to the stored call before each family is
 refitted. Anything valid for \code{\link[=gkwqreg]{gkwqreg()}} may be given, so a single
-\code{compare_families(fit, tau = 0.9)} refits every family at that level. The
-\code{family} argument itself is set per row and cannot be overridden here.}
+\code{compare_families(fit, tau = 0.9)} refits every family at that level.
+\code{family} is set per row from the \code{families} argument; passing \code{family}
+here is an error.}
 }
 \value{
 A data frame with one row per entry of \code{families}, ordered by increasing
