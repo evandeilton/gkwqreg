@@ -30,7 +30,8 @@ from one or two bins.}
 \item{...}{Passed to the underlying \code{\link[graphics:plot]{graphics::plot()}} calls in panels 1, 2, 4,
 5 and 6. Panel 3 is drawn by \code{\link[stats:qqnorm]{stats::qqnorm()}} and does not receive them.
 Note that \code{main}, \code{xlab}, \code{ylab}, \code{pch}, \code{cex} and \code{col} are already supplied
-by each panel, so passing them again will raise a duplicated-argument error.}
+by each panel, so passing them again will raise a duplicated-argument error;
+panel 6 additionally fixes \code{type} to \code{"h"} for the same reason.}
 }
 \value{
 \code{x}, invisibly. Called for the plots it draws.
@@ -42,7 +43,7 @@ panels 4 and 5, ask a question that mean regression cannot pose at all, namely
 whether the fitted quantile is a quantile of the right level.
 }
 \details{
-Panels 1 to 3 and 6 are computed from the randomized-quantile residuals of Dunn
+Panels 1 to 3 are computed from the randomized-quantile residuals of Dunn
 and Smyth (1996), \code{residuals(x, type = "quantile")}, which for this family
 require no randomization because the distribution is continuous:
 
@@ -168,7 +169,8 @@ threshold are highlighted and labelled with their row number so that they can be
 looked up in the data. The threshold is a convention with no distributional
 basis: use it to rank observations, not to test them. This is the one panel
 that needs the estimated covariance matrix, so it is unavailable for a fit
-obtained with \code{gkwq_control(hessian = FALSE)}.
+obtained with \code{gkwq_control(hessian = FALSE)}: an empty panel with an
+explanatory message is drawn in its place.
 }
 
 \examples{

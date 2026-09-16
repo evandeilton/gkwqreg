@@ -202,3 +202,20 @@ test_that("plot.gkwqregs() returns its argument invisibly", {
   grDevices::dev.off()
   expect_identical(out, fits2)
 })
+
+test_that("panel 6 degrades gracefully, rather than crashing, without a hessian", {
+  ## vcov(x) errors when the fit skipped optimHess(), so D in panel 6 used to
+  ## come back entirely NA. plot(..., type = "h") on all-NA data raised "need
+  ## finite 'ylim' values" instead of drawing the "unavailable" panel the docs
+  ## promise for a fit obtained with gkwq_control(hessian = FALSE).
+  skip_if_not(capabilities("png"))
+  d <- sim_kw(n = 150)
+  f <- gkwqreg(y ~ x, data = d, tau = 0.5, family = "kw",
+               control = gkwq_control(hessian = FALSE))
+  expect_true(is.null(f$vcov))
+  pf <- tempfile(fileext = ".png")
+  grDevices::png(pf); on.exit(unlink(pf), add = TRUE)
+  expect_silent(plot(f, which = 6))
+  expect_silent(plot(f, which = 1:6, nsim = 10))
+  grDevices::dev.off()
+})
