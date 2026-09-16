@@ -32,6 +32,96 @@ test_that("crossing across separately fitted levels is detected and fixable", {
   expect_true(all(apply(R, 1, function(r) all(diff(r) >= -1e-12))))
 })
 
+test_that("check_crossing() is right at exactly two tau levels (regression)", {
+  ## Bug: when Q has exactly two columns, diff() applied row-wise degenerates
+  ## to a scalar per row, apply(Q, 1, diff) simplifies to a plain vector (not
+  ## a matrix), and t() of that vector yields a 1 x n matrix instead of the
+  ## intended n x 1 -- the wrong orientation. It slips past
+  ## `if (is.null(dim(D))) ...` because a 1 x n matrix already has a dim().
+  ## Two levels is not a hypothetical edge case: it is the minimum this
+  ## function itself accepts (see the `length(tv) < 2L` guard above).
+  set.seed(1)
+  n <- 120
+  x <- runif(n, -1, 1)
+  mu <- plogis(0.2 + 1.2 * x)
+  y <- rbeta(n, 4 * mu, 4 * (1 - mu))
+  d <- data.frame(y = y, x = x)
+
+  fits2 <- gkwqreg(y ~ x | x, data = d, tau = c(0.90, 0.95), family = "kw")
+  ## Extrapolated grid: the same device the check_crossing() examples use to
+  ## surface real crossings between independently fitted levels.
+  grid <- data.frame(x = seq(-3, 3, length.out = 201))
+
+  cr <- check_crossing(fits2, newdata = grid)
+  expect_equal(cr$mode, "separate")
+  expect_equal(ncol(cr$Q), 2L)
+
+  ## Ground truth computed by hand from the (bug-free) Q matrix, exactly as
+  ## the audit prescribes: Q[, 2] - Q[, 1] < -tol.
+  Dm <- cr$Q[, 2] - cr$Q[, 1]
+  violm <- Dm < -0  # tol = 0, the default
+  rows_manual <- which(violm)
+
+  ## Not a vacuous scenario: this grid is known to cross at these levels.
+  expect_true(length(rows_manual) > 0L)
+
+  expect_equal(cr$n_crossing, length(rows_manual))
+  expect_equal(cr$frac, length(rows_manual) / nrow(cr$Q))
+  expect_equal(cr$which, rows_manual)
+  expect_equal(cr$worst, max(-Dm[violm]))
+  expect_equal(nrow(cr$pairs), 1L)
+  expect_equal(cr$pairs$tau_lo, 0.90)
+  expect_equal(cr$pairs$tau_hi, 0.95)
+  expect_equal(cr$pairs$n, length(rows_manual))
+
+  ## attr(rearrange(...), "crossing") calls check_crossing() internally and
+  ## must inherit the same, now-correct, count -- not the pre-fix one.
+  R <- rearrange(fits2, newdata = grid)
+  crR <- attr(R, "crossing")
+  expect_equal(crR$n_crossing, cr$n_crossing)
+  expect_true(crR$n_crossing > 0L)
+  expect_true(all(apply(R, 1, function(r) all(diff(r) >= -1e-12))))
+})
+
+test_that("check_crossing() at three-plus levels still matches the manual count", {
+  ## Same scenario, full 19-level grid: guards against the two-level fix
+  ## having disturbed the case that already worked.
+  set.seed(1)
+  n <- 120
+  x <- runif(n, -1, 1)
+  mu <- plogis(0.2 + 1.2 * x)
+  y <- rbeta(n, 4 * mu, 4 * (1 - mu))
+  d <- data.frame(y = y, x = x)
+
+  fits <- gkwqreg(y ~ x | x, data = d, tau = seq(0.05, 0.95, by = 0.05),
+                  family = "kw")
+  grid <- data.frame(x = seq(-3, 3, length.out = 201))
+  cr <- check_crossing(fits, newdata = grid)
+
+  m <- ncol(cr$Q)
+  expect_true(m >= 3L)
+  Dm <- cr$Q[, -1L, drop = FALSE] - cr$Q[, -m, drop = FALSE]
+  violm <- Dm < 0
+  rows_manual <- which(apply(violm, 1L, any))
+
+  expect_true(length(rows_manual) > 0L)
+  expect_equal(cr$n_crossing, length(rows_manual))
+  expect_equal(cr$which, rows_manual)
+  expect_equal(nrow(cr$pairs), m - 1L)
+  ## data.frame() repurposes colSums(violm)'s names as rownames(cr$pairs) (see
+  ## the tau-labelled row names in the check_crossing() examples), so the `n`
+  ## column itself comes back unnamed -- compare values only.
+  expect_equal(cr$pairs$n, unname(colSums(violm)))
+})
+
+test_that("check_crossing() validates tol", {
+  d <- sim_kw(n = 150)
+  f <- gkwqreg(y ~ x, data = d, tau = 0.5, family = "kw")
+  expect_error(check_crossing(f, tol = -1), "non-negative")
+  expect_error(check_crossing(f, tol = c(0, 1)), "non-negative")
+  expect_error(check_crossing(f, tol = "a"), "non-negative")
+})
+
 test_that("the quantile process collects coefficient paths", {
   d <- sim_kw(n = 200)
   qp <- quantile_process(gkwqreg(y ~ x, data = d, tau = 0.5, family = "kw"),
@@ -40,6 +130,15 @@ test_that("the quantile process collects coefficient paths", {
   expect_equal(dim(qp$coef), c(3L, 4L))
   expect_true(all(qp$lower <= qp$coef & qp$coef <= qp$upper, na.rm = TRUE))
   expect_output(print(qp), "Quantile process")
+})
+
+test_that("quantile_process() refuses a single quantile level", {
+  ## A process is a curve over tau; one level does not define one. Previously
+  ## this failed deep inside with an opaque
+  ## "length of 'dimnames' [2] not equal to array extent" error.
+  d <- sim_kw(n = 150)
+  f <- gkwqreg(y ~ x, data = d, tau = 0.5, family = "kw")
+  expect_error(quantile_process(f, taus = 0.5), "at least two")
 })
 
 test_that("pinball loss matches the check-loss definition", {
@@ -87,4 +186,19 @@ test_that("plots run without error", {
   qp <- quantile_process(f, taus = c(0.25, 0.5, 0.75))
   expect_silent(plot(qp))
   grDevices::dev.off()
+})
+
+test_that("plot.gkwqregs() returns its argument invisibly", {
+  ## Its documented @return is shared with plot.gkwq_process: "x, invisibly."
+  ## The previous body, `plot(quantile_process(x), ...)`, returned whatever
+  ## plot.gkwq_process() handed back -- the derived "gkwq_process" object, not
+  ## the "gkwqregs" container `x` the doc promises.
+  skip_if_not(capabilities("png"))
+  d <- sim_kw(n = 150)
+  fits2 <- gkwqreg(y ~ x, data = d, tau = c(0.25, 0.75), family = "kw")
+  pf <- tempfile(fileext = ".png")
+  grDevices::png(pf); on.exit(unlink(pf), add = TRUE)
+  out <- plot(fits2)
+  grDevices::dev.off()
+  expect_identical(out, fits2)
 })

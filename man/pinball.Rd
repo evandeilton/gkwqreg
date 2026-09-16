@@ -25,8 +25,12 @@ explicitly. Ignored when \code{newdata} is \code{NULL}.}
 \value{
 A single number for a \code{"gkwqreg"} fit: the weighted mean check loss,
 on the scale of the response. For a \code{"gkwqregs"} container, a numeric vector
-with one entry per quantile level, named as the container's elements are
-(\code{"tau=0.1"} and so on).
+with one entry per quantile level, named as the container's \code{fits} list
+already is: \code{"tau=0.1"} and so on. That prefixed form is \strong{not} the naming
+convention used elsewhere in this file -- \code{\link[=check_crossing]{check_crossing()}}, \code{\link[=rearrange]{rearrange()}}
+and \code{\link[=quantile_process]{quantile_process()}} name their columns just \code{"0.1"}, with no \verb{tau=}
+prefix, because they build the names themselves via
+\code{format(tau, trim = TRUE)} rather than inheriting them from \code{object$fits}.
 }
 \description{
 Evaluates, on the fitting data or on a held-out sample, the loss function that

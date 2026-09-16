@@ -30,7 +30,8 @@ the fits themselves.}
 counts as a crossing only if it exceeds \code{tol} in absolute value. The default
 \code{0} flags any decrease at all; a small positive value (say \code{1e-8}) is
 appropriate if you wish to ignore decreases attributable to floating-point
-arithmetic rather than to the fit.}
+arithmetic rather than to the fit. Must be a single non-negative number; a
+negative or non-scalar \code{tol} is an error.}
 
 \item{...}{Currently unused, accepted so that the alias and future methods keep
 a stable signature.}
@@ -40,7 +41,10 @@ An object of class \code{"gkwq_crossing"}, a list with components
 \describe{
 \item{\code{taus}}{Numeric vector of the levels checked, in increasing order.}
 \item{\code{Q}}{The \eqn{n \times m}{n x m} matrix of fitted quantiles, rows in
-the order of the evaluation data and columns named by level.}
+the order of the evaluation data and columns named by level, as plain
+formatted numbers (\code{"0.1"}, via \code{format(tau, trim = TRUE)}) -- not
+\code{\link[=pinball]{pinball()}}'s \code{"tau=0.1"} form (see that function's Value section for
+why the two differ).}
 \item{\code{mode}}{\code{"separate"} for independently fitted levels, \code{"implied"} for
 the levels of one fitted distribution.}
 \item{\code{n_crossing}}{Number of rows containing at least one crossing.}

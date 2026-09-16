@@ -24,8 +24,12 @@
 #'   explicitly. Ignored when `newdata` is `NULL`.
 #' @return A single number for a `"gkwqreg"` fit: the weighted mean check loss,
 #'   on the scale of the response. For a `"gkwqregs"` container, a numeric vector
-#'   with one entry per quantile level, named as the container's elements are
-#'   (`"tau=0.1"` and so on).
+#'   with one entry per quantile level, named as the container's `fits` list
+#'   already is: `"tau=0.1"` and so on. That prefixed form is **not** the naming
+#'   convention used elsewhere in this file -- [check_crossing()], [rearrange()]
+#'   and [quantile_process()] name their columns just `"0.1"`, with no `tau=`
+#'   prefix, because they build the names themselves via
+#'   `format(tau, trim = TRUE)` rather than inheriting them from `object$fits`.
 #'
 #' @details
 #' Write \eqn{\hat{Q}_\tau(x_i)}{Qhat_i} for the fitted conditional
@@ -201,7 +205,8 @@ pinball <- function(object, newdata = NULL, y = NULL) {
 #'   counts as a crossing only if it exceeds `tol` in absolute value. The default
 #'   `0` flags any decrease at all; a small positive value (say `1e-8`) is
 #'   appropriate if you wish to ignore decreases attributable to floating-point
-#'   arithmetic rather than to the fit.
+#'   arithmetic rather than to the fit. Must be a single non-negative number; a
+#'   negative or non-scalar `tol` is an error.
 #' @param ... Currently unused, accepted so that the alias and future methods keep
 #'   a stable signature.
 #'
@@ -257,7 +262,10 @@ pinball <- function(object, newdata = NULL, y = NULL) {
 #' \describe{
 #'   \item{`taus`}{Numeric vector of the levels checked, in increasing order.}
 #'   \item{`Q`}{The \eqn{n \times m}{n x m} matrix of fitted quantiles, rows in
-#'     the order of the evaluation data and columns named by level.}
+#'     the order of the evaluation data and columns named by level, as plain
+#'     formatted numbers (`"0.1"`, via `format(tau, trim = TRUE)`) -- not
+#'     [pinball()]'s `"tau=0.1"` form (see that function's Value section for
+#'     why the two differ).}
 #'   \item{`mode`}{`"separate"` for independently fitted levels, `"implied"` for
 #'     the levels of one fitted distribution.}
 #'   \item{`n_crossing`}{Number of rows containing at least one crossing.}
@@ -326,6 +334,9 @@ pinball <- function(object, newdata = NULL, y = NULL) {
 #' #> 0
 #' @export
 check_crossing <- function(object, newdata = NULL, taus = NULL, tol = 0, ...) {
+  if (!is.numeric(tol) || length(tol) != 1L || tol < 0) {
+    stop("tol must be a single non-negative number.", call. = FALSE)
+  }
   if (inherits(object, "gkwqregs")) {
     fits <- object$fits
     tv <- object$taus
@@ -357,8 +368,7 @@ check_crossing <- function(object, newdata = NULL, taus = NULL, tol = 0, ...) {
   }
   colnames(Q) <- format(tv, trim = TRUE)
 
-  D <- t(apply(Q, 1L, diff))
-  if (is.null(dim(D))) D <- matrix(D, nrow = nrow(Q))
+  D <- Q[, -1L, drop = FALSE] - Q[, -ncol(Q), drop = FALSE]
   viol <- D < -tol
   rows <- which(apply(viol, 1L, any))
   pairs <- data.frame(tau_lo = tv[-length(tv)], tau_hi = tv[-1L],
@@ -464,7 +474,9 @@ print.gkwq_crossing <- function(x, ...) {
 #'
 #' @return A numeric matrix of rearranged quantiles with the same dimensions and
 #'   dimnames as the input quantile matrix: one row per evaluation observation,
-#'   one column per level, columns named by level. The matrix carries an attribute
+#'   one column per level, columns named by level as plain formatted numbers
+#'   (`"0.1"`, the same convention as [check_crossing()]'s `Q` -- not
+#'   [pinball()]'s `"tau=0.1"` form). The matrix carries an attribute
 #'   `"crossing"` holding the `"gkwq_crossing"` object computed *before*
 #'   rearrangement, so that what was repaired remains recoverable through
 #'   `attr(x, "crossing")`.
@@ -545,7 +557,9 @@ rearrange <- function(object, newdata = NULL, ...) {
 #'   `tau` replaced by `taus`, or a `"gkwqregs"` container of fits that have
 #'   already been computed and are simply harvested.
 #' @param taus Increasing grid of quantile levels in \eqn{(0,1)}{(0,1)}, used only
-#'   when `object` is a single fit. **Silently ignored when `object` is a
+#'   when `object` is a single fit, and required to have at least two levels: a
+#'   process is a curve over `tau`, and a single level does not define one, so
+#'   fit [gkwqreg()] directly instead. **Silently ignored when `object` is a
 #'   `"gkwqregs"` container**, whose levels are already fixed by its fits.
 #' @param level Confidence level for the pointwise bands, `0.95` by default.
 #' @param ... Additional arguments merged into the re-evaluated call, hence passed
@@ -630,7 +644,9 @@ rearrange <- function(object, newdata = NULL, ...) {
 #'   \item{`taus`}{Numeric vector of the levels, increasing.}
 #'   \item{`coef`}{Coefficient matrix, one row per model coefficient and one
 #'     column per level. Rows are named `"part:term"` (for example `"mu:x"`,
-#'     `"alpha:(Intercept)"`); columns are named by level.}
+#'     `"alpha:(Intercept)"`); columns are named by level as plain formatted
+#'     numbers (`"0.1"`, via `format(tau, trim = TRUE)` -- not [pinball()]'s
+#'     `"tau=0.1"` form).}
 #'   \item{`se`}{Standard errors, same shape and dimnames as `coef`.}
 #'   \item{`lower`, `upper`}{Pointwise Wald band limits, `coef` plus or minus
 #'     `qnorm(1 - (1 - level) / 2)` standard errors.}
@@ -700,6 +716,11 @@ quantile_process <- function(object, taus = seq(0.05, 0.95, by = 0.05),
     taus <- object$taus
   } else {
     stopifnot(inherits(object, "gkwqreg"))
+    if (length(taus) < 2L) {
+      stop("quantile_process() needs at least two quantile levels; a single ",
+           "level does not define a process. Fit gkwqreg() directly for one ",
+           "level.", call. = FALSE)
+    }
     cl <- object$call
     cl$tau <- taus
     extra <- list(...)
@@ -862,4 +883,7 @@ plot.gkwq_process <- function(x, parm = NULL, parts = "mu", nrow = NULL,
 
 #' @rdname plot.gkwq_process
 #' @export
-plot.gkwqregs <- function(x, ...) plot(quantile_process(x), ...)
+plot.gkwqregs <- function(x, ...) {
+  plot(quantile_process(x), ...)
+  invisible(x)
+}
