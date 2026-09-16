@@ -27,8 +27,11 @@ normalization the \pkg{sandwich} package expects. Together with
 The value is
 \deqn{\widehat{\mathrm{bread}} \;=\; n \, \hat{H}^{-1}
   \;=\; \left(\frac{1}{n}\hat{H}\right)^{-1},}
-the inverse of the \emph{average} observed information, which is the quantity that
-converges to a fixed matrix as \eqn{n} grows. That normalization is what lets
+where \eqn{\hat{H}} is the observed information matrix at the fitted
+coefficients -- see \code{\link[=vcov.gkwqreg]{vcov.gkwqreg()}} for its exact definition and how it is
+computed. The expression above is the inverse of the \emph{average} observed
+information, which is the quantity that converges to a fixed matrix as
+\eqn{n} grows. That normalization is what lets
 \pkg{sandwich} assemble
 \eqn{\widehat{\mathrm{bread}} \, \widehat{\mathrm{meat}} \,
 \widehat{\mathrm{bread}} / n} and recover the same estimator as

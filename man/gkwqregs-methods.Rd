@@ -26,7 +26,9 @@
 \item{object}{A \code{"gkwqregs"} container, as returned by \code{\link[=gkwqreg]{gkwqreg()}} with a
 vector-valued \code{tau}.}
 
-\item{...}{Passed on to the corresponding method for each individual fit.}
+\item{...}{Passed on to the corresponding method for each individual fit,
+except for \code{logLik()}, which always errors and never touches \code{...}; see
+Details.}
 
 \item{newdata}{Used by \code{predict()} only: an optional data frame in which to
 evaluate every fit, with the same requirements as
@@ -38,12 +40,12 @@ evaluate every fit, with the same requirements as
 quantile level, the columns named by level.
 \item \code{fitted()}: a numeric matrix with one row per observation and one column
 per level, holding each fit's conditional quantiles.
+\item \code{logLik()}: never returns; it raises an error explaining why.
 \item \code{summary()}: a list of \code{"summary.gkwqreg"} objects, one per level.
 \item \code{predict()}: a numeric matrix with one row per prediction and one column
 per level, from each fit in turn.
 \item \code{residuals()}: a numeric matrix with one row per observation and one column
 per level.
-\item \code{logLik()}: never returns; it raises an error explaining why.
 }
 }
 \description{

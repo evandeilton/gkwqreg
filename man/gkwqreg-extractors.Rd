@@ -72,7 +72,7 @@ which is useful for inspection or for deferred evaluation.}
 \item{level}{Confidence level stored on the \code{summary()} object for a caller
 that wants it. The printed table reports estimates, standard errors and
 p-values rather than an interval, so changing \code{level} does not change what
-\code{print()} shows; use \code{\link[=confint]{confint()}} for an interval at a chosen level.}
+\code{print()} shows; use \code{\link[=confint.gkwqreg]{confint.gkwqreg()}} for an interval at a chosen level.}
 
 \item{vcov_type}{Which covariance estimator \code{summary()} should use for its
 standard errors, one of \code{"expected"}, \code{"observed"} or \code{"sandwich"}; see
@@ -87,7 +87,10 @@ back to the stored matrix rather than failing.}
 bare term names, when one part is given; a named list of such vectors when
 several are given.
 \item \code{logLik()}: an object of class \code{"logLik"} with attributes \code{df}
-(the number of estimated coefficients) and \code{nobs}.
+(the number of estimated coefficients) and \code{nobs}. Under prior weights the
+\code{nobs} attribute holds the effective sample size \code{sum(w)} -- the same
+adjustment described for the \code{k} argument's BIC penalty -- so it can
+differ from \code{nobs(object)}, which always counts rows.
 \item \code{nobs()}: a single integer, the number of observations used in the fit.
 \item \code{AIC()}, \code{BIC()}: a single number.
 \item \code{family()}: an object of class \code{"gkwq_family"}, a list with components
@@ -102,7 +105,9 @@ attribute and contrasts as recorded at fit time.
 \code{evaluate = FALSE}.
 \item \code{summary()}: an object of class \code{"summary.gkwqreg"} carrying the
 coefficient table, the fit statistics, the pinball loss, the pseudo-R1, the
-empirical coverage and the information condition number, with a \code{print}
+empirical coverage, the information condition number and a
+\code{parameter_summary} component (a named numeric vector with the mean of
+each column of \code{fitted(object, type = "parameter")}), with a \code{print}
 method.
 }
 }
